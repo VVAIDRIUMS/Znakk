@@ -16,6 +16,32 @@ class LikeRepository:
         await self.session.refresh(like)
         return like
 
+    # ✅ НОВОЕ: Получить лайк по user_id
+    async def get_by_user_id(self, user_id: int) -> List[LikeModel]:
+        result = await self.session.execute(
+            select(LikeModel).where(LikeModel.user_id == user_id)
+        )
+        return result.scalars().all()
+
+    # ✅ НОВОЕ: Получить лайк по liked_profile_id
+    async def get_by_liked_profile_id(self, liked_profile_id: int) -> List[LikeModel]:
+        result = await self.session.execute(
+            select(LikeModel).where(LikeModel.liked_profile_id == liked_profile_id)
+        )
+        return result.scalars().all()
+
+    # ✅ НОВОЕ: Получить лайк по user_id и liked_profile_id
+    async def get_by_user_and_profile(self, user_id: int, liked_profile_id: int) -> Optional[LikeModel]:
+        result = await self.session.execute(
+            select(LikeModel).where(
+                and_(
+                    LikeModel.user_id == user_id,
+                    LikeModel.liked_profile_id == liked_profile_id
+                )
+            )
+        )
+        return result.scalar_one_or_none()
+
     async def get_by_id(self, like_id: int) -> Optional[LikeModel]:
         result = await self.session.execute(
             select(LikeModel).where(LikeModel.id == like_id)
@@ -24,7 +50,7 @@ class LikeRepository:
 
     async def get_by_profile_id(self, profile_id: int) -> Optional[LikeModel]:
         result = await self.session.execute(
-            select(LikeModel).where(LikeModel.like_profile_id == profile_id)
+            select(LikeModel).where(LikeModel.liked_profile_id == profile_id)
         )
         return result.scalar_one_or_none()
 
@@ -58,14 +84,6 @@ class LikeRepository:
         return result.scalars().all()
 
     async def get_mutual_likes(self) -> List[LikeModel]:
-        # Получаем лайки, где me_liked = True (я лайкнул)
-        result = await self.session.execute(
-            select(LikeModel).where(LikeModel.me_liked == True)
-        )
-        return result.scalars().all()
-
-    async def get_likes_by_me_liked(self, me_liked: bool) -> List[LikeModel]:
-        result = await self.session.execute(
-            select(LikeModel).where(LikeModel.me_liked == me_liked)
-        )
+        # Получаем все лайки
+        result = await self.session.execute(select(LikeModel))
         return result.scalars().all()
