@@ -2,24 +2,20 @@ from pydantic import BaseModel, Field
 from typing import Optional
 
 
-class LikeBase(BaseModel):
-    like_profile_id: int = Field(..., description="ID профиля, который лайкнули")
-    contact: str = Field(..., max_length=20, description="Контактная информация")
-    me_liked: bool = Field(..., description="Я лайкнул профиль")
+class LikeCreate(BaseModel):
+    """Создание лайка"""
+    liked_profile_id: int = Field(..., description="ID профиля, который лайкнули")
+
+    class Config:
+        from_attributes = True
 
 
-class LikeCreate(LikeBase):
-    role_id: int = Field(..., description="ID связанной роли")
-
-
-class LikeUpdate(BaseModel):
-    contact: Optional[str] = Field(None, max_length=20, description="Контактная информация")
-    me_liked: Optional[bool] = Field(None, description="Я лайкнул профиль")
-
-
-class LikeResponse(LikeBase):
+class LikeResponse(BaseModel):
+    """Ответ с информацией о лайке"""
     id: int
-    role_id: int
+    user_id: int
+    liked_profile_id: int
+    created_at: Optional[str] = None
 
     class Config:
         from_attributes = True
