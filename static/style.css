@@ -109,6 +109,12 @@ body {
   color: white;
 }
 
+.dark .auth-btn {
+  background: #007aff;
+  color: white;
+  font-size: 13px;
+}
+
 #app {
   display: flex;
   flex-direction: column;
@@ -166,12 +172,39 @@ body {
   font-size: 18px;
 }
 
+/* ✅ ОНОВЛЕННАЯ - кнопка авторизации */
 .auth-btn {
   background: #007aff;
   color: white;
-  font-size: 14px;
+  font-size: 13px;
   width: auto;
-  padding: 0 12px;
+  padding: 8px 14px;
+  height: auto;
+  gap: 6px;
+  transition: all 0.2s;
+  box-shadow: 0 2px 8px rgba(0, 122, 255, 0.3);
+}
+
+.auth-btn:hover {
+  background: #0051d5;
+  box-shadow: 0 4px 12px rgba(0, 122, 255, 0.4);
+  transform: translateY(-1px);
+}
+
+.auth-btn:active {
+  transform: translateY(0);
+}
+
+.auth-btn-icon {
+  font-size: 18px;
+}
+
+.auth-btn-text {
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 150px;
 }
 
 /* ✅ НОВОЕ - Статус пользователя */
@@ -723,6 +756,15 @@ button:hover {
     height: 32px;
   }
   
+  .auth-btn {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+  
+  .auth-btn-text {
+    max-width: 100px;
+  }
+  
   .user-status {
     padding: 6px 10px;
     font-size: 12px;
@@ -789,6 +831,16 @@ button:hover {
   .city-filter {
     font-size: 11px;
     padding: 3px 6px;
+  }
+  
+  .auth-btn {
+    padding: 6px 10px;
+    font-size: 11px;
+    order: 4;
+  }
+  
+  .auth-btn-text {
+    max-width: 80px;
   }
   
   .user-status {
