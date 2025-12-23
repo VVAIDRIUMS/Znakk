@@ -36,6 +36,22 @@ const profileViewUnlikeBtn = document.getElementById('profile-view-unlike-btn');
 const authPanel = document.querySelector('.auth-panel');
 const authClose = document.querySelector('.auth-close');
 
+// Helper function to convert error to string
+function getErrorMessage(error) {
+  if (typeof error === 'string') {
+    return error;
+  }
+  if (error instanceof Error) {
+    return error.message || 'Unknown error';
+  }
+  if (error && typeof error === 'object') {
+    if (error.detail) return error.detail;
+    if (error.message) return error.message;
+    return JSON.stringify(error);
+  }
+  return String(error) || 'Unknown error';
+}
+
 // API Functions
 async function apiRequest(endpoint, options = {}) {
   const headers = {
@@ -92,7 +108,9 @@ async function loginUser(email, password) {
   const data = await response.json();
   
   if (!response.ok) {
-    throw new Error(data.detail || 'Ошибка входа');
+    // ✅ ИСПРАВЛЕНО - правильно извлекаем сообщение об ошибке
+    const errorMessage = data.detail || data.message || 'Ошибка входа';
+    throw new Error(errorMessage);
   }
   
   authToken = data.access_token;
@@ -518,7 +536,9 @@ document.getElementById('login-btn').addEventListener('click', async () => {
       loadProfiles();
     }, 1000);
   } catch (error) {
-    showAuthMessage(error.message, 'error');
+    // ✅ ИСПРАВЛЕНО - правильно преобразуем ошибку в строку
+    const errorMessage = getErrorMessage(error);
+    showAuthMessage(errorMessage, 'error');
   }
 });
 
@@ -552,7 +572,9 @@ document.getElementById('register-btn').addEventListener('click', async () => {
       loadProfiles();
     }, 1000);
   } catch (error) {
-    showAuthMessage(error.message, 'error');
+    // ✅ ИСПРАВЛЕНО - правильно преобразуем ошибку в строку
+    const errorMessage = getErrorMessage(error);
+    showAuthMessage(errorMessage, 'error');
   }
 });
 
@@ -658,7 +680,9 @@ if (createSave) {
       // Reload profiles
       loadProfiles();
     } catch (error) {
-      alert('Ошибка создания профиля: ' + error.message);
+      // ✅ ИСПРАВЛЕНО - правильно преобразуем ошибку в строку
+      const errorMessage = getErrorMessage(error);
+      alert('Ошибка создания профиля: ' + errorMessage);
     }
   });
 }
