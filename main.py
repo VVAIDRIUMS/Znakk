@@ -1,4 +1,6 @@
 import uvicorn
+import os
+from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -31,13 +33,27 @@ app.include_router(profiles_router)
 app.include_router(users_router)
 app.include_router(user_filters_router)
 
-# Mount static files
-app.mount("/static", StaticFiles(directory="static"), name="static")
+# ✅ ИСПРАВЛЕНО - правильный путь к папке static
+# Получаем абсолютный путь к папке static
+BASE_DIR = Path(__file__).resolve().parent
+STATIC_DIR = BASE_DIR / "static"
+
+# Проверяем существование папки static
+if STATIC_DIR.exists():
+    # Mount static files
+    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+else:
+    print(f"⚠️  Папка static не найдена по пути: {STATIC_DIR}")
+    print(f"📁 Текущая директория: {BASE_DIR}")
 
 # Root endpoint - serve the frontend
 @app.get("/")
 async def read_root():
-    return FileResponse("static/index.html")
+    index_file = STATIC_DIR / "index.html"
+    if index_file.exists():
+        return FileResponse(str(index_file))
+    else:
+        return {"message": "Welcome to Dating App API. Visit /docs for API documentation."}
 
 # API endpoint to get profiles (demo)
 @app.get("/api/profiles")
@@ -65,6 +81,7 @@ async def get_profiles():
 async def startup_event():
     await create_tables()
     print("✅ База данных инициализирована")
+    print(f"📁 Статические файлы загружаются из: {STATIC_DIR}")
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8001, reload=True)
