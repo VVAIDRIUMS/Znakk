@@ -41,12 +41,21 @@ const profileViewUnlikeBtn = document.getElementById('profile-view-unlike-btn');
 const authPanel = document.querySelector('.auth-panel');
 const authClose = document.querySelector('.auth-close');
 
-// ✅ НОВОЕ: Функция для безопасного API запроса
+// ✅ ИСПРАВЛЕНО: Функция для безопасного API запроса
 async function apiRequest(endpoint, options = {}) {
   const headers = {
     'Content-Type': 'application/json',
     ...options.headers
   };
+  
+  // ✅ ДОБАВЛЯЕМ ТОКЕН В ЗАГОЛОВОК
+  if (authToken) {
+    headers['Authorization'] = `Bearer ${authToken}`;
+    console.log(`📤 Отправляем запрос с токеном к ${endpoint}`);
+    console.log(`🎫 Токен: ${authToken.substring(0, 20)}...`);
+  } else {
+    console.log(`📤 Отправляем запрос БЕЗ токена к ${endpoint}`);
+  }
   
   const requestOptions = {
     method: options.method || 'GET',
@@ -63,18 +72,20 @@ async function apiRequest(endpoint, options = {}) {
     const data = await response.json();
     
     if (response.status === 401) {
-      console.error('❌ 401 Unauthorized');
-      // НЕ выходим из аккаунта, просто возвращаем ошибку
+      console.error('❌ 401 Unauthorized - Токен невалидный или истек');
+      logoutUser();
       throw new Error('Требуется авторизация');
     }
     
     if (!response.ok) {
+      console.error(`❌ Ошибка ${response.status}: ${data.detail || data.message}`);
       throw new Error(data.detail || data.message || 'Ошибка запроса');
     }
     
+    console.log(`✅ Успешный ответ от ${endpoint}`);
     return data;
   } catch (error) {
-    console.error('API Error:', error);
+    console.error('❌ API Error:', error);
     throw error;
   }
 }
@@ -111,8 +122,10 @@ async function loginUser(email, password) {
       throw new Error(data.detail || 'Ошибка входа');
     }
     
+    // ✅ СОХРАНЯЕМ ТОКЕН
     authToken = data.access_token;
     localStorage.setItem('authToken', authToken);
+    console.log(`✅ Токен сохранен: ${authToken.substring(0, 20)}...`);
     
     currentUser = {
       id: data.user_id,
@@ -120,8 +133,10 @@ async function loginUser(email, password) {
       role_id: data.role_id || 1
     };
     
+    console.log(`✅ Пользователь авторизован: ${currentUser.email}`);
     return currentUser;
   } catch (error) {
+    console.error('❌ Login error:', error);
     throw error;
   }
 }
@@ -141,14 +156,16 @@ async function registerUser(email, password) {
       throw new Error(data.detail || 'Ошибка регистрации');
     }
     
-    // После регистрации сразу логинимся
+    // После регистрации сразу логиним
     return await loginUser(email, password);
   } catch (error) {
+    console.error('❌ Register error:', error);
     throw error;
   }
 }
 
 function logoutUser() {
+  console.log('🚪 Выход из аккаунта');
   authToken = null;
   currentUser = null;
   localStorage.removeItem('authToken');
@@ -204,7 +221,7 @@ async function fetchProfiles(city = null, gender = null) {
   try {
     return await apiRequest(endpoint);
   } catch (error) {
-    console.error('Error fetching profiles:', error);
+    console.error('❌ Error fetching profiles:', error);
     return [];
   }
 }
@@ -221,9 +238,14 @@ async function createProfile(profileData) {
   params.append('tags', profileData.tags || '');
   
   try {
+    console.log('📤 Отправляем профиль на сервер');
     const response = await fetch(`${API_BASE}/profiles/`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      headers: { 
+        'Content-Type': 'application/x-www-form-urlencoded',
+        // ✅ ДОБАВЛЯЕМ ТОКЕН И СЮДА
+        ...(authToken && { 'Authorization': `Bearer ${authToken}` })
+      },
       body: params.toString(),
       credentials: 'include'
     });
@@ -231,21 +253,22 @@ async function createProfile(profileData) {
     const data = await response.json();
     
     if (!response.ok) {
+      console.error(`❌ Ошибка ${response.status}:`, data);
       throw new Error(data.detail || data.message || 'Ошибка сохранения профиля');
     }
     
+    console.log('✅ Профиль успешно создан:', data);
     return data;
   } catch (error) {
-    console.error('Create profile error:', error);
+    console.error('❌ Create profile error:', error);
     throw error;
   }
 }
 
 // ============================================
-// LIKES FUNCTIONS - НОВАЯ СТАБИЛЬНАЯ ВЕРСИЯ
+// LIKES FUNCTIONS
 // ============================================
 
-// ✅ НОВОЕ: Добавить лайк (безопасный способ)
 async function likeProfile(profile) {
   if (!currentUser) {
     showNotification('❌ Для лайков нужно войти в аккаунт');
@@ -267,13 +290,12 @@ async function likeProfile(profile) {
       return false;
     }
   } catch (error) {
-    console.error('Like error:', error);
+    console.error('❌ Like error:', error);
     showNotification(`❌ ${getErrorMessage(error)}`);
     return false;
   }
 }
 
-// ✅ НОВОЕ: Удалить лайк (безопасный способ)
 async function unlikeProfile(profile) {
   if (!currentUser) return false;
   
@@ -290,13 +312,12 @@ async function unlikeProfile(profile) {
       return false;
     }
   } catch (error) {
-    console.error('Unlike error:', error);
+    console.error('❌ Unlike error:', error);
     showNotification(`❌ ${getErrorMessage(error)}`);
     return false;
   }
 }
 
-// ✅ НОВОЕ: Получить мои лайки
 async function getMyLikes() {
   if (!currentUser) {
     showNotification('❌ Пожалуйста авторизуйтесь');
@@ -306,13 +327,12 @@ async function getMyLikes() {
   try {
     return await apiRequest('/likes/my-likes');
   } catch (error) {
-    console.error('Error getting my likes:', error);
-    showNotification('❌ Ошибка загружки лайков');
+    console.error('❌ Error getting my likes:', error);
+    showNotification('❌ Ошибка загрузки лайков');
     return [];
   }
 }
 
-// ✅ НОВОЕ: Получить кто лайкнул меня
 async function getWhoLikedMe() {
   if (!currentUser) {
     showNotification('❌ Пожалуйста авторизуйтесь');
@@ -322,13 +342,12 @@ async function getWhoLikedMe() {
   try {
     return await apiRequest('/likes/who-liked-me');
   } catch (error) {
-    console.error('Error getting who liked me:', error);
-    showNotification('❌ Ошибка загружки лайков');
+    console.error('❌ Error getting who liked me:', error);
+    showNotification('❌ Ошибка загрузки лайков');
     return [];
   }
 }
 
-// ✅ НОВОЕ: Проверить есть ли лайк
 async function checkIfLiked(profileId) {
   if (!currentUser) return false;
   
@@ -397,7 +416,7 @@ async function loadProfiles() {
     currentIndex = 0;
     renderCard();
   } catch (error) {
-    console.error('Error loading profiles:', error);
+    console.error('❌ Error loading profiles:', error);
     showNotification('❌ Ошибка загрузки профилей');
   }
 }
@@ -502,12 +521,10 @@ function viewProfile(profile) {
 // EVENT LISTENERS
 // ============================================
 
-// ✅ ИСПРАВЛЕНО: Кнопки управления
 likeBtn?.addEventListener('click', likeCurrentProfile);
 skipBtn?.addEventListener('click', skipCurrentProfile);
 refreshBtn?.addEventListener('click', refreshProfiles);
 
-// ✅ ИСПРАВЛЕНО: Создание профиля
 createBtn?.addEventListener('click', () => {
   if (!currentUser) {
     showNotification('❌ Для создания анкеты нужно войти в аккаунт');
@@ -521,7 +538,6 @@ createClose?.addEventListener('click', () => {
   createPanel?.setAttribute('aria-hidden', 'true');
 });
 
-// ✅ ИСПРАВЛЕНО: Сохранение профиля
 createSave?.addEventListener('click', async () => {
   if (!currentUser) {
     showNotification('❌ Пожалуйста авторизуйтесь');
@@ -536,7 +552,6 @@ createSave?.addEventListener('click', async () => {
   const description = document.getElementById('create-bio').value.trim();
   const tags = document.getElementById('create-tags').value.trim();
   
-  // Валидация
   if (!username || !age || !gender || !city || !photo || !description) {
     showNotification('❌ Заполните все поля');
     return;
@@ -550,7 +565,6 @@ createSave?.addEventListener('click', async () => {
     showNotification('✅ Профиль создан!');
     createPanel?.setAttribute('aria-hidden', 'true');
     
-    // Очищаем форму
     document.getElementById('create-name').value = '';
     document.getElementById('create-age').value = '';
     document.getElementById('create-gender').value = '';
@@ -565,7 +579,6 @@ createSave?.addEventListener('click', async () => {
   }
 });
 
-// ✅ ИСПРАВЛЕНО: Кнопка лайков (мои лайки)
 savedBtn?.addEventListener('click', async () => {
   if (!currentUser) {
     showNotification('❌ Пожалуйста авторизуйтесь');
@@ -600,12 +613,10 @@ savedBtn?.addEventListener('click', async () => {
   likedPanel?.setAttribute('aria-hidden', 'false');
 });
 
-// ✅ ИСПРАВЛЕНО: Кнопка возврата из лайков
 likedBackBtn?.addEventListener('click', () => {
   likedPanel?.setAttribute('aria-hidden', 'true');
 });
 
-// ✅ ИСПРАВЛЕНО: Кнопка "Кто лайкнул меня"
 whoLikedBtn?.addEventListener('click', async () => {
   if (!currentUser) {
     showNotification('❌ Пожалуйста авторизуйтесь');
@@ -640,12 +651,10 @@ whoLikedBtn?.addEventListener('click', async () => {
   whoLikedPanel?.setAttribute('aria-hidden', 'false');
 });
 
-// ✅ ИСПРАВЛЕНО: Кнопка возврата из "Кто лайкнул"
 whoLikedBackBtn?.addEventListener('click', () => {
   whoLikedPanel?.setAttribute('aria-hidden', 'true');
 });
 
-// ✅ ИСПРАВЛЕНО: Просмотр профиля
 profileViewClose?.addEventListener('click', () => {
   profileViewPanel.setAttribute('aria-hidden', 'true');
 });
@@ -664,7 +673,6 @@ profileViewUnlikeBtn?.addEventListener('click', async () => {
   }
 });
 
-// ✅ ИСПРАВЛЕНО: Аутентификация
 document.getElementById('login-tab')?.addEventListener('click', () => {
   document.getElementById('login-tab').classList.add('active');
   document.getElementById('register-tab').classList.remove('active');
@@ -778,11 +786,12 @@ themeToggle?.addEventListener('click', () => {
 // ============================================
 
 window.addEventListener('DOMContentLoaded', async () => {
+  console.log('🚀 Приложение загружается...');
+  console.log(`🎫 Токен в localStorage: ${authToken ? authToken.substring(0, 20) + '...' : 'НЕТ'}`);
+  
   if (authToken) {
     try {
       console.log('🔍 Проверка авторизации...');
-      // Просто считаем что пользователь авторизован если есть токен
-      // Не делаем лишний запрос к БД
       console.log('✅ Пользователь авторизован');
     } catch (error) {
       console.error('❌ Ошибка авторизации:', error);
