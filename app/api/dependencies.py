@@ -62,12 +62,18 @@ def get_current_user_id(token: str = Depends(get_token)) -> int:
     """
     Получить ID пользователя из токена
     Декодирует JWT и извлекает user_id
+    
+    ✅ ИСПРАВЛЕНО: Использует validate_token() вместо decode_token()
     """
     try:
-        data = AuthService.decode_token(token)
+        # ✅ ФИКС: validate_token() - это правильный метод
+        data = AuthService.validate_token(token)
         print(f"✅ Токен успешно декодирован: user_id = {data.get('user_id')}")
     except InvalidJWTTokenError as e:
         print(f"❌ ОШИБКА при декодировании токена: {e}")
+        raise InvalidTokenHTTPError
+    except Exception as e:
+        print(f"❌ ОШИБКА при валидации токена: {type(e).__name__}: {str(e)}")
         raise InvalidTokenHTTPError
     
     user_id = data.get("user_id")
