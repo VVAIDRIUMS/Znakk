@@ -2,16 +2,26 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from fastapi.middleware.cors import CORSMiddleware
 from app.api.auth import router as auth_router
 from app.api.roles import router as roles_router
-from app.router.favorites import router as favorites_router
-from app.router.likes import router as likes_router
-from app.router.profiles import router as profiles_router
-from app.router.user_filters import router as user_filters_router
-from app.router.users import router as users_router
+from app.api.favorites import router as favorites_router
+from app.api.likes import router as likes_router
+from app.api.profiles import router as profiles_router
+from app.api.user_filters import router as user_filters_router
+from app.api.users import router as users_router
 from app.database.database import create_tables
 
 app = FastAPI(title="Сайт Знакомств", version="0.0.1")
+
+# CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 app.include_router(auth_router)
 app.include_router(roles_router)
