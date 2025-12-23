@@ -49,7 +49,16 @@ function getErrorMessage(error) {
     return error.message || 'Unknown error';
   }
   if (error && typeof error === 'object') {
-    if (error.detail) return error.detail;
+    if (error.detail) {
+      // Если detail это массив, покажи первую ошибку
+      if (Array.isArray(error.detail)) {
+        const firstError = error.detail[0];
+        if (firstError.msg) return firstError.msg;
+        if (firstError.loc) return `Поле '${firstError.loc[1]}': ${firstError.msg || 'ошибка'}`;
+        return JSON.stringify(firstError);
+      }
+      return error.detail;
+    }
     if (error.message) return error.message;
     return JSON.stringify(error);
   }
@@ -74,11 +83,9 @@ async function apiRequest(endpoint, options = {}) {
     });
     
     if (response.status === 401) {
-      // ✅ МОННато - правильная обработка 401
-      console.error('✅ 401 Unauthorized for endpoint:', endpoint);
+      console.error('401 Unauthorized for endpoint:', endpoint);
       console.error('Token preview:', authToken ? authToken.substring(0, 20) + '...' : 'No token');
       
-      // Unauthorized - clear token and show auth
       authToken = null;
       currentUser = null;
       localStorage.removeItem('authToken');
@@ -86,7 +93,6 @@ async function apiRequest(endpoint, options = {}) {
       updateAuthButtonDisplay();
       updateUserStatusDisplay();
       
-      // Показываю ошибку пользователю
       showNotification('Сессия истекла. Пожалуйста, войдите снова');
       authPanel.setAttribute('aria-hidden', 'false');
       
@@ -128,27 +134,23 @@ async function loginUser(email, password) {
       throw new Error(errorMessage);
     }
     
-    // ✅ Отработано токена
     authToken = data.access_token;
     console.log('✅ Token received and saved');
     console.log('Token preview:', authToken.substring(0, 20) + '...');
     localStorage.setItem('authToken', authToken);
     
-    // ✅ НОВОЕ - заполним основные данные из токена
     currentUser = {
       id: data.user_id,
       email: email,
       role_id: data.role_id
     };
     
-    // Попытаюсь понять полные данные
     try {
       const fullUser = await apiRequest('/users/me');
       currentUser = fullUser;
       console.log('✅ User data loaded from /users/me');
     } catch (userError) {
-      console.warn('⚠️  Could not load full user data:', userError);
-      // Мы все равно вошли!
+      console.warn('⚠️ Could not load full user data:', userError);
     }
     
     return currentUser;
@@ -164,7 +166,6 @@ async function registerUser(email, password) {
     body: JSON.stringify({ email, password , role_id: 1 })
   });
   
-  // Auto-login after registration
   return await loginUser(email, password);
 }
 
@@ -175,20 +176,16 @@ function logoutUser() {
   viewedProfiles = [];
 }
 
-// ✅ НОВОЕ - функция обновления кнопки входа
 function updateAuthButtonDisplay() {
   if (currentUser && authBtn && authBtnText) {
-    // Когда вошли
     authBtnText.textContent = currentUser.email;
     authBtn.style.width = 'auto';
   } else if (authBtn && authBtnText) {
-    // Когда не вошли
     authBtnText.textContent = '';
     authBtn.style.width = '40px';
   }
 }
 
-// ✅ НОВОЕ - функция обновления статуса пользователя в хедере
 function updateUserStatusDisplay() {
   if (currentUser && userStatus && userStatusEmail && logoutHeaderBtn) {
     userStatusEmail.textContent = currentUser.email;
@@ -200,7 +197,6 @@ function updateUserStatusDisplay() {
   }
 }
 
-// ✅ НОВОЕ - кнопка выхода в хедере
 if (logoutHeaderBtn) {
   logoutHeaderBtn.addEventListener('click', () => {
     logoutUser();
@@ -233,7 +229,6 @@ async function fetchProfiles(city = null, gender = null) {
     return await apiRequest(endpoint);
   } catch (error) {
     console.error('Error fetching profiles:', error);
-    // Fallback to demo endpoint if API fails
     const response = await fetch('/api/profiles');
     return await response.json();
   }
@@ -285,6 +280,88 @@ async function getWhoLikedMe() {
   }
 }
 
+// ✅ НОВОЕ: Функция валидации формы профиля
+function validateProfileForm() {
+  const username = document.getElementById('create-name').value.trim();
+  const age = document.getElementById('create-age').value.trim();
+  const gender = document.getElementById('create-gender').value.trim();
+  const city = document.getElementById('create-city').value.trim();
+  const photo = document.getElementById('create-photo').value.trim();
+  const description = document.getElementById('create-bio').value.trim();
+  const tags = document.getElementById('create-tags').value.trim();
+  
+  // Проверяем ВСЕ поля
+  if (!username) {
+    alert('❌ ОШИБКА: Заполните имя (обязательное поле)');
+    return false;
+  }
+  
+  if (!age) {
+    alert('❌ ОШИБКА: Заполните возраст');
+    return false;
+  }
+  
+  const ageNum = parseInt(age);
+  if (isNaN(ageNum) || ageNum < 18 || ageNum > 120) {
+    alert('❌ ОШИБКА: Возраст должен быть от 18 до 120 лет');
+    return false;
+  }
+  
+  if (!gender) {
+    alert('❌ ОШИБКА: Выберите пол (обязательное поле)');
+    return false;
+  }
+  
+  if (!city) {
+    alert('❌ ОШИБКА: Заполните город (обязательное поле)');
+    return false;
+  }
+  
+  if (city.length > 30) {
+    alert('❌ ОШИБКА: Город не должен быть больше 30 символов');
+    return false;
+  }
+  
+  if (!photo) {
+    alert('❌ ОШИБКА: Заполните URL фотографии (обязательное поле)');
+    return false;
+  }
+  
+  if (photo.length > 200) {
+    alert('❌ ОШИБКА: URL фотографии не должен быть больше 200 символов');
+    return false;
+  }
+  
+  // Проверка что это похоже на URL
+  if (!photo.startsWith('http://') && !photo.startsWith('https://')) {
+    alert('❌ ОШИБКА: URL фотографии должен начинаться с http:// или https://');
+    return false;
+  }
+  
+  if (!description) {
+    alert('❌ ОШИБКА: Заполните описание (обязательное поле)');
+    return false;
+  }
+  
+  if (description.length > 100) {
+    alert('❌ ОШИБКА: Описание не должно быть больше 100 символов');
+    return false;
+  }
+  
+  if (!tags) {
+    alert('❌ ОШИБКА: Заполните теги (обязательное поле)');
+    return false;
+  }
+  
+  if (tags.length > 100) {
+    alert('❌ ОШИБКА: Теги не должны быть больше 100 символов');
+    return false;
+  }
+  
+  console.log('✅ Все поля заполнены и валидны');
+  return true;
+}
+
 // Load profiles
 async function loadProfiles() {
   try {
@@ -296,7 +373,6 @@ async function loadProfiles() {
       selectedGender !== 'all' ? selectedGender : null
     );
     
-    // Filter out viewed profiles
     if (currentUser && viewedProfiles.length > 0) {
       profiles = profiles.filter(profile => !viewedProfiles.includes(profile.id));
     }
@@ -328,7 +404,6 @@ function renderCard() {
   
   const genderEmoji = profile.gender === 'male' ? '🚮' : profile.gender === 'female' ? '🚮' : '';
   
-  // ✅ ИСПРАВЛЕНО: photo вместо photo_url, username вместо name, description вместо bio
   card.innerHTML = `
     <div class="card-inner">
       <div class="card-photo" style="background-image: url(${profile.photo || 'https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?w=800&q=80'})"></div>
@@ -367,7 +442,6 @@ async function likeCurrentProfile() {
     const profile = profiles[currentIndex];
     await likeProfile(profile);
     
-    // Mark as viewed
     viewedProfiles.push(profile.id);
     
     nextCard();
@@ -385,7 +459,6 @@ async function likeProfile(profile) {
   try {
     await likeProfileAPI(profile.id);
     
-    // Animation effect
     if (likeBtn) {
       likeBtn.style.transform = 'scale(1.2)';
       likeBtn.style.backgroundColor = '#34c759';
@@ -398,7 +471,6 @@ async function likeProfile(profile) {
       }, 300);
     }
     
-    // ✅ ИСПРАВЛЕНО: username вместо name
     showNotification(`Вы лайкнули ${profile.username}!`);
     return true;
   } catch (error) {
@@ -414,7 +486,6 @@ async function unlikeProfile(profile) {
   
   try {
     await unlikeProfileAPI(profile.id);
-    // ✅ ИСПРАВЛЕНО: username вместо name
     showNotification(`Лайк для ${profile.username} убран`);
     return true;
   } catch (error) {
@@ -429,10 +500,8 @@ function skipCurrentProfile() {
   if (currentIndex < profiles.length) {
     const profile = profiles[currentIndex];
     
-    // Mark as viewed
     viewedProfiles.push(profile.id);
     
-    // Animation effect
     if (skipBtn) {
       skipBtn.style.transform = 'scale(1.2)';
       skipBtn.style.backgroundColor = '#ff3b30';
@@ -445,7 +514,6 @@ function skipCurrentProfile() {
       }, 300);
     }
     
-    // ✅ ИСПРАВЛЕНО: username вместо name
     showNotification(`Вы пропустили ${profile.username}`);
     nextCard();
   }
@@ -692,7 +760,6 @@ function updateAuthUI() {
     document.getElementById('login-tab').classList.add('active');
     document.getElementById('register-tab').classList.remove('active');
     
-    // Clear form fields
     document.getElementById('login-email').value = '';
     document.getElementById('login-password').value = '';
     document.getElementById('register-email').value = '';
@@ -708,7 +775,7 @@ function showAuthMessage(message, type) {
   authMessage.className = `auth-message ${type}`;
 }
 
-// Save profile
+// ✅ ИСПРАВЛЕНО: Save profile с полной валидацией
 if (createSave) {
   createSave.addEventListener('click', async () => {
     if (!currentUser) {
@@ -716,37 +783,48 @@ if (createSave) {
       return;
     }
     
-    // ✅ ИСПРАВЛЕНО: используем правильные имена полей
-    const username = document.getElementById('create-name').value;   // ✅ name → username
-    const age = document.getElementById('create-age').value;
-    const gender = document.getElementById('create-gender').value;
-    const city = document.getElementById('create-city').value;
-    const photo = document.getElementById('create-photo').value;     // ✅ photo, не photo_url
-    const description = document.getElementById('create-bio').value;  // ✅ bio → description
-    const tags = document.getElementById('create-tags').value;        // ✅ строка, не массив
-    
-    if (!username || !age || !gender) {
-      alert('Заполните имя, возраст и пол');
+    // ✅ ВАЛИДАЦИЯ ВСЕХ ПОЛЕЙ
+    if (!validateProfileForm()) {
       return;
     }
     
-    // ✅ ИСПРАВЛЕНО: правильная структура данных с user_id и role_id
+    // ✅ ПОЛУЧАЕМ ЗНАЧЕНИЯ (они уже проверены)
+    const username = document.getElementById('create-name').value.trim();
+    const age = parseInt(document.getElementById('create-age').value.trim());
+    const gender = document.getElementById('create-gender').value.trim();
+    const city = document.getElementById('create-city').value.trim();
+    const photo = document.getElementById('create-photo').value.trim();
+    const description = document.getElementById('create-bio').value.trim();
+    const tags = document.getElementById('create-tags').value.trim();
+    
+    // ✅ ПРАВИЛЬНАЯ СТРУКТУРА (БЕЗ || '', так как уже валидировано)
     const profileData = {
-      user_id: currentUser.id,                                        // ✅ ДОБАВЛЕНО
-      username: username,                                             // ✅ ПЕРЕИМЕНОВАНО
-      age: parseInt(age),
+      user_id: currentUser.id,
+      username: username,
+      age: age,
       gender: gender,
-      city: city || '',
-      description: description || '',                                 // ✅ ПЕРЕИМЕНОВАНО
-      photo: photo || 'https://via.placeholder.com/300x400',         // ✅ ПЕРЕИМЕНОВАНО
-      tags: tags || '',                                               // ✅ строка
-      role_id: currentUser.role_id || 1                              // ✅ ДОБАВЛЕНО
+      city: city,
+      description: description,
+      photo: photo,
+      tags: tags,
+      role_id: currentUser.role_id || 1
     };
     
     try {
-      console.log('📤 Отправляю profileData:', profileData);  // ✅ Логирование
+      console.log('📤 Отправляю profileData:', profileData);
+      console.log('📋 user_id:', profileData.user_id);
+      console.log('📋 username:', profileData.username);
+      console.log('📋 age:', profileData.age);
+      console.log('📋 gender:', profileData.gender);
+      console.log('📋 city:', profileData.city);
+      console.log('📋 description:', profileData.description);
+      console.log('📋 photo:', profileData.photo);
+      console.log('📋 tags:', profileData.tags);
+      console.log('📋 role_id:', profileData.role_id);
+      
       myProfile = await createProfile(profileData);
-      showNotification('Профиль создан успешно!');
+      console.log('✅ Профиль создан:', myProfile);
+      showNotification('✅ Профиль создан успешно!');
       if (createPanel) createPanel.setAttribute('aria-hidden', 'true');
       
       // Clear form
@@ -762,8 +840,9 @@ if (createSave) {
       await loadProfiles();
     } catch (error) {
       const errorMessage = getErrorMessage(error);
-      console.error('❌ Error creating profile:', error); // ✅ Логирование ошибки
-      alert('Ошибка создания профиля: ' + errorMessage);
+      console.error('❌ Error creating profile:', error);
+      console.error('❌ Error details:', errorMessage);
+      alert('❌ ОШИБКА при создании профиля:\n\n' + errorMessage);
     }
   });
 }
@@ -809,7 +888,6 @@ async function renderLikedList() {
       const item = document.createElement('div');
       item.className = 'liked-item';
       const genderEmoji = profile.gender === 'male' ? '🚮' : profile.gender === 'female' ? '🚮' : '';
-      // ✅ ИСПРАВЛЕНО: photo вместо photo_url, username вместо name
       item.innerHTML = `
         <div class="profile-photo-small" style="background-image: url(${profile.photo || 'https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?w=800&q=80'})"></div>
         <div class="profile-info">
@@ -852,7 +930,7 @@ async function renderLikedList() {
     });
   } catch (error) {
     console.error('Error rendering liked list:', error);
-    likedList.innerHTML = '<div class="empty-text">Ошибка загружки</div>';
+    likedList.innerHTML = '<div class="empty-text">Ошибка загрузки</div>';
   }
 }
 
@@ -875,7 +953,6 @@ async function renderWhoLikedList() {
       const item = document.createElement('div');
       item.className = 'who-liked-item';
       const genderEmoji = profile.gender === 'male' ? '🚮' : profile.gender === 'female' ? '🚮' : '';
-      // ✅ ИСПРАВЛЕНО: photo вместо photo_url, username вместо name
       item.innerHTML = `
         <div class="profile-photo-small" style="background-image: url(${profile.photo || 'https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?w=800&q=80'})"></div>
         <div class="profile-info">
@@ -934,7 +1011,7 @@ async function renderWhoLikedList() {
     });
   } catch (error) {
     console.error('Error rendering who liked list:', error);
-    whoLikedList.innerHTML = '<div class="empty-text">Ошибка загружки</div>';
+    whoLikedList.innerHTML = '<div class="empty-text">Ошибка загрузки</div>';
   }
 }
 
@@ -942,7 +1019,6 @@ async function renderWhoLikedList() {
 function viewProfile(profile) {
   currentViewingProfile = profile;
   
-  // ✅ ИСПРАВЛЕНО: правильные имена полей
   document.getElementById('profile-view-photo').style.backgroundImage = `url(${profile.photo || 'https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?w=800&q=80'})`;
   document.getElementById('profile-view-name').textContent = profile.username;
   document.getElementById('profile-view-age').textContent = `${profile.age} лет`;
@@ -952,7 +1028,6 @@ function viewProfile(profile) {
   document.getElementById('profile-view-contact').textContent = profile.tags || 'Не указаны';
   document.getElementById('profile-view-tags').textContent = profile.tags || 'Не указаны';
   
-  // Show/hide appropriate buttons
   getLikedProfiles().then(likedProfiles => {
     const isLiked = likedProfiles.some(p => p.id === profile.id);
     if (isLiked) {
@@ -1014,12 +1089,12 @@ const createPreview = document.getElementById('create-preview');
 const createPreviewArea = document.querySelector('.create-preview-area');
 
 createPreview?.addEventListener('click', () => {
-  const username = document.getElementById('create-name').value || "Имя";  // ✅ ИСПРАВЛЕНО
+  const username = document.getElementById('create-name').value || "Имя";
   const age = document.getElementById('create-age').value || "Возраст";
   const gender = document.getElementById('create-gender').value;
   const city = document.getElementById('create-city').value || "Город";
-  const description = document.getElementById('create-bio').value || "О себе";  // ✅ ИСПРАВЛЕНО
-  const photo = document.getElementById('create-photo').value || "https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?w=800&q=80";  // ✅ ИСПРАВЛЕНО
+  const description = document.getElementById('create-bio').value || "О себе";
+  const photo = document.getElementById('create-photo').value || "https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?w=800&q=80";
   
   const genderEmoji = gender === 'male' ? '🚮' : gender === 'female' ? '🚮' : '';
   
@@ -1080,7 +1155,6 @@ if (themeToggle) {
 
 // Initialize app
 window.addEventListener('DOMContentLoaded', async () => {
-  // Check if user is logged in
   if (authToken) {
     try {
       console.log('🔍 Checking if user is still logged in...');
@@ -1088,7 +1162,7 @@ window.addEventListener('DOMContentLoaded', async () => {
       currentUser = await apiRequest('/users/me');
       console.log('✅ User is logged in:', currentUser.email);
     } catch (error) {
-      console.error('⚠️  Error fetching user:', error);
+      console.error('⚠️ Error fetching user:', error);
       authToken = null;
       currentUser = null;
       localStorage.removeItem('authToken');
