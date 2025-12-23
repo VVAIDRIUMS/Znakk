@@ -36,13 +36,9 @@ class AuthService:
         self.user_repository = UserRepository(session)
 
         """Проверка пароля"""
-            def verify_password(self, plain_password: str, password: str) -> bool:
-                        """Простое сравнение паролей"""
-                        return plain_password == password
-
-        
-
-        return pwd_context.hash(password)
+        def verify_password(self, plain_password: str, password: str) -> bool:
+            """Простое сравнение паролей"""
+            return plain_password == password
 
     def create_access_token(self, data: dict, expires_delta: Optional[timedelta] = None) -> str:
         """Создание JWT токена"""
@@ -90,9 +86,7 @@ class AuthService:
         existing_user = await self.user_repository.get_by_email(user_data.email)
         if existing_user:
             raise UserAlreadyExistsException(user_data.email)
-        
-        # Хэшируем пароль
-        hashed_password = user_data.password        
+            
         # Создаем пользователя
         
         user = await self. user_data.password        
@@ -110,20 +104,6 @@ class AuthService:
         user = await self.user_repository.get_by_id(user_id)
         if not user:
             raise UserNotFoundException(user_id)
-        
-        # Проверяем текущий пароль
-        if not self.verify_password(password_data.current_password, user.hashed_password):
-            raise InvalidPasswordException("Current password is incorrect")
-        
-        # Хэшируем новый пароль
-        new_hashed_password = self.get_password_hash(password_data.new_password)
-        
-        # Обновляем пароль
-        await self.user_repository.update(user_id, {
-            "hashed_password": new_hashed_password
-        })
-        
-        return {"message": "Password changed successfully"}
 
     async def refresh_token(self, user_id: int) -> Token:
         """Обновление токена"""
