@@ -1,20 +1,21 @@
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+
 from app.database.database import get_db
-from app.schemas.likes import LikeCreate, LikeUpdate, LikeResponse
+from app.database.models import Like, Profile, User
+from app.schemas.likes import LikeCreate, LikeResponse
 from app.schemas.profiles import ProfileResponse
-from app.services.likes import LikeService
-from app.services.profiles import ProfileService
-from app.exceptions import LikeNotFoundException, LikeAlreadyExistsException
 from app.api.dependencies import get_current_user_id
+from app.exceptions import LikeNotFoundException
 
 router = APIRouter(prefix="/likes", tags=["likes"])
 
 
-# ✅ НОВОЕ: Лайк с проверкой профиля
-@router.post("/", response_model=LikeResponse, status_code=status.HTTP_201_CREATED)
-async def create_like(
+# ✅ НОВОЕ: Поставить лайк
+@router.post("/add", response_model=dict, status_code=status.HTTP_200_OK)
+async def add_like(
     like_data: LikeCreate,
     current_user_id: int = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db)
@@ -22,74 +23,73 @@ async def create_like(
     """
     Поставить лайк на профиль
     
-    Можно только если у пользователя есть собственный профиль
+    - **liked_profile_id**: ID профиля, который лайкнуть
     """
-    profile_service = ProfileService(db)
-    
-    # ✅ Провераем что у пользователя есть профиль
-    user_profile = await profile_service.get_profile_by_user_id(current_user_id)
-    if not user_profile:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Сначала создайте свой профиль"
-        )
-    
-    # ✅ Нельзя лайкнуть свой одн профиль
-    if user_profile.id == like_data.liked_profile_id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Нельзя лайкнуть свой профиль"
-        )
-    
-    service = LikeService(db)
     try:
-        return await service.create_like(like_data, current_user_id)
-    except LikeAlreadyExistsException as e:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=str(e)
+        # Проверим что пользователь имеет профиль
+        user_profile_stmt = select(Profile).where(Profile.user_id == current_user_id)
+        user_profile = await db.scalar(user_profile_stmt)
+        
+        if not user_profile:
+            return {
+                "success": False,
+                "message": "Сначала создайте свой профиль"
+            }
+        
+        # Нельзя лайкнуть свой профиль
+        if user_profile.id == like_data.liked_profile_id:
+            return {
+                "success": False,
+                "message": "Нельзя лайкнуть свой профиль"
+            }
+        
+        # Проверим что профиль существует
+        liked_profile_stmt = select(Profile).where(Profile.id == like_data.liked_profile_id)
+        liked_profile = await db.scalar(liked_profile_stmt)
+        
+        if not liked_profile:
+            return {
+                "success": False,
+                "message": "Профиль не найден"
+            }
+        
+        # Проверим нет ли уже лайка
+        existing_like_stmt = select(Like).where(
+            Like.user_id == current_user_id,
+            Like.liked_profile_id == like_data.liked_profile_id
         )
-
-
-# ✅ НОВОЕ: Получить профили которым САМ нользователь поставил лайк
-@router.get("/my-likes", response_model=List[ProfileResponse])
-async def get_my_likes(
-    current_user_id: int = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db)
-):
-    """
-    Профили которым я поставил лайк
-    """
-    service = LikeService(db)
-    return await service.get_profiles_i_liked(current_user_id)
-
-
-# ✅ НОВОЕ: Получить профили которые лайкнули МЕНЯ
-@router.get("/who-liked-me", response_model=List[ProfileResponse])
-async def get_who_liked_me(
-    current_user_id: int = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db)
-):
-    """
-    Профили которые лайкнули мой профиль
-    """
-    profile_service = ProfileService(db)
-    
-    # Находим профиль пользователя
-    my_profile = await profile_service.get_profile_by_user_id(current_user_id)
-    if not my_profile:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Профиль не найден"
+        existing_like = await db.scalar(existing_like_stmt)
+        
+        if existing_like:
+            return {
+                "success": False,
+                "message": "Вы уже лайкнули этот профиль"
+            }
+        
+        # Сохраняем лайк
+        new_like = Like(
+            user_id=current_user_id,
+            liked_profile_id=like_data.liked_profile_id
         )
-    
-    service = LikeService(db)
-    return await service.get_profiles_that_liked_me(my_profile.id)
+        db.add(new_like)
+        await db.commit()
+        
+        return {
+            "success": True,
+            "message": f"Вы лайкнули {liked_profile.username}",
+            "profile_id": like_data.liked_profile_id
+        }
+    except Exception as e:
+        await db.rollback()
+        return {
+            "success": False,
+            "message": f"Ошибка: {str(e)}"
+        }
 
 
-# ✅ НОВОЕ: Удалить лайк по profile_id
-@router.delete("/{liked_profile_id}")
-async def delete_like(
+# ✅ НОВОЕ: Удалить лайк
+@router.post("/remove/{liked_profile_id}", response_model=dict, status_code=status.HTTP_200_OK)
+async def remove_like(
     liked_profile_id: int,
     current_user_id: int = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db)
@@ -97,78 +97,141 @@ async def delete_like(
     """
     Удалить лайк с профиля
     """
-    service = LikeService(db)
     try:
-        return await service.delete_like(current_user_id, liked_profile_id)
-    except LikeNotFoundException as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
+        # Находим лайк
+        like_stmt = select(Like).where(
+            Like.user_id == current_user_id,
+            Like.liked_profile_id == liked_profile_id
         )
+        like = await db.scalar(like_stmt)
+        
+        if not like:
+            return {
+                "success": False,
+                "message": "Лайк не найден"
+            }
+        
+        await db.delete(like)
+        await db.commit()
+        
+        return {
+            "success": True,
+            "message": "Лайк удален"
+        }
+    except Exception as e:
+        await db.rollback()
+        return {
+            "success": False,
+            "message": f"Ошибка: {str(e)}"
+        }
 
 
-# Старые endpoints (двигаются для обратной совместимости)
-
-@router.get("/", response_model=List[LikeResponse])
-async def get_all_likes(
-    skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=1000),
+# ✅ НОВОЕ: Получить профили которым я лайкнул
+@router.get("/my-likes", response_model=List[ProfileResponse])
+async def get_my_likes(
+    current_user_id: int = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db)
 ):
-    service = LikeService(db)
-    return await service.get_all_likes(skip, limit)
+    """
+    Получить профили которым я лайкнул
+    """
+    try:
+        # Находим все лайки текущего пользователя
+        stmt = select(Like).where(Like.user_id == current_user_id)
+        likes = await db.scalars(stmt)
+        
+        profiles = []
+        for like in likes:
+            # Находим профиль который лайкнули
+            profile_stmt = select(Profile).where(Profile.id == like.liked_profile_id)
+            profile = await db.scalar(profile_stmt)
+            if profile:
+                profiles.append(ProfileResponse.model_validate(profile))
+        
+        return profiles
+    except Exception as e:
+        return []
 
 
-@router.get("/{like_id}", response_model=LikeResponse)
-async def get_like(
-    like_id: int,
+# ✅ НОВОЕ: Получить ко мне лайкнули
+@router.get("/who-liked-me", response_model=List[ProfileResponse])
+async def get_who_liked_me(
+    current_user_id: int = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db)
 ):
-    service = LikeService(db)
+    """
+    Получить профили которые лайкнули МЕНЯ
+    """
     try:
-        return await service.get_like(like_id)
-    except LikeNotFoundException as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
-        )
+        # Находим профиль текущего пользователя
+        my_profile_stmt = select(Profile).where(Profile.user_id == current_user_id)
+        my_profile = await db.scalar(my_profile_stmt)
+        
+        if not my_profile:
+            return []
+        
+        # Находим все лайки которые получил мой профиль
+        stmt = select(Like).where(Like.liked_profile_id == my_profile.id)
+        likes = await db.scalars(stmt)
+        
+        profiles = []
+        for like in likes:
+            # Находим профиль который лайкнул
+            profile_stmt = select(Profile).where(Profile.user_id == like.user_id)
+            profile = await db.scalar(profile_stmt)
+            if profile:
+                profiles.append(ProfileResponse.model_validate(profile))
+        
+        return profiles
+    except Exception as e:
+        return []
 
 
-@router.get("/profile/{profile_id}", response_model=LikeResponse)
-async def get_like_by_profile(
+# ✅ НОВОЕ: Проверить был ли лайк на этот профиль
+@router.get("/check/{profile_id}", response_model=dict)
+async def check_like(
     profile_id: int,
+    current_user_id: int = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db)
 ):
-    service = LikeService(db)
+    """
+    Проверить был ли лайк на специфичный профиль
+    """
     try:
-        return await service.get_like_by_profile(profile_id)
-    except LikeNotFoundException as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
+        stmt = select(Like).where(
+            Like.user_id == current_user_id,
+            Like.liked_profile_id == profile_id
         )
+        like = await db.scalar(stmt)
+        
+        return {
+            "liked": like is not None
+        }
+    except Exception:
+        return {
+            "liked": False
+        }
 
 
-@router.put("/{like_id}", response_model=LikeResponse)
-async def update_like(
-    like_id: int,
-    like_data: LikeUpdate,
-    db: AsyncSession = Depends(get_db)
-):
-    service = LikeService(db)
-    try:
-        return await service.update_like(like_id, like_data)
-    except LikeNotFoundException as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
-        )
+# ✅ НОВОЕ: Неавторизованные запросы - просим на регистрацию
+
+@router.get("/my-likes", response_model=dict)
+async def get_my_likes_unauthorized():
+    """
+    Получить лайки с авторизацией (fallback)
+    """
+    return {
+        "success": False,
+        "message": "Пожалуйста авторизуйтесь”
+    }
 
 
-@router.get("/role/{role_id}", response_model=List[LikeResponse])
-async def get_likes_by_role(
-    role_id: int,
-    db: AsyncSession = Depends(get_db)
-):
-    service = LikeService(db)
-    return await service.get_likes_by_role(role_id)
+@router.get("/who-liked-me", response_model=dict)
+async def get_who_liked_me_unauthorized():
+    """
+    Получить ко мне с авторизацией (fallback)
+    """
+    return {
+        "success": False,
+        "message": "Пожалуйста авторизуйтесь"
+    }
