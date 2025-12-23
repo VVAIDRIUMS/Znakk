@@ -1,0 +1,1907 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <title>Знакомства</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <style>
+    /* Basic styles for dating app */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #f5f2ec;
+      color: #1d1b16;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* Dark theme */
+    .dark body {
+      background: #1a1a1a;
+      color: #e6e6e6;
+    }
+
+    .dark #app {
+      background: #1a1a1a;
+    }
+
+    .dark .top-bar {
+      background: #2a2a2a;
+    }
+
+    .dark .card {
+      background: #2a2a2a;
+      box-shadow: 0 12px 30px rgba(0,0,0,0.6);
+    }
+
+    .dark button {
+      background: #2a2a2a;
+      color: #e6e6e6;
+    }
+
+    .dark .empty-text {
+      color: #999;
+    }
+
+    .dark .liked-panel,
+    .dark .who-liked-panel,
+    .dark .create-panel,
+    .dark .profile-view-panel,
+    .dark .auth-panel {
+      background: #1a1a1a;
+    }
+
+    .dark .liked-item,
+    .dark .create-card,
+    .dark .profile-view-card,
+    .dark .auth-card {
+      background: #2a2a2a;
+    }
+
+    .dark .create-body input,
+    .dark .create-body textarea,
+    .dark .profile-view-info div,
+    .dark .auth-body input {
+      background: #333;
+      color: #e6e6e6;
+      border-color: #444;
+    }
+
+    .dark .action-buttons button {
+      background: #2a2a2a;
+      color: #e6e6e6;
+      border: 1px solid #444;
+    }
+
+    .dark .action-buttons .skip-btn {
+      background: #3a3a3a;
+    }
+
+    .dark .action-buttons .like-btn {
+      background: #3a3a3a;
+    }
+
+    .dark .action-buttons .refresh-btn {
+      background: #3a3a3a;
+      color: #007aff;
+      border-color: #007aff;
+    }
+
+    #app {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    .top-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      background: #fff;
+      flex-shrink: 0;
+      z-index: 10;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+
+    .logo {
+      font-weight: 700;
+      font-size: 18px;
+    }
+
+    .logo-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+    }
+
+    .logo-img {
+      width: 24px;
+      height: 24px;
+      border-radius: 4px;
+      background-color: #f0f0f0;
+    }
+
+    .city-filter {
+      padding: 6px 10px;
+      border-radius: 8px;
+      border: 1px solid #e7e2d8;
+      background: #fff;
+      font-size: 14px;
+      height: 36px;
+    }
+
+    .theme-toggle, .saved-btn, .create-btn, .profile-btn, .auth-btn {
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 10px;
+      font-size: 18px;
+    }
+
+    .auth-btn {
+      background: #007aff;
+      color: white;
+      font-size: 14px;
+      width: auto;
+      padding: 0 12px;
+    }
+
+    .profile-dot {
+      width: 8px;
+      height: 8px;
+      background: #007aff;
+      border-radius: 50%;
+    }
+
+    .main-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 20px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card-container {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    .card-stack {
+      position: relative;
+      width: 100%;
+      max-width: 380px;
+      height: 480px;
+      margin: 0 auto;
+    }
+
+    .card {
+      position: absolute;
+      inset: 0;
+      border-radius: 22px;
+      background: #fff;
+      box-shadow: 0 12px 30px rgba(0,0,0,0.08);
+      overflow: hidden;
+      touch-action: none;
+      cursor: pointer;
+    }
+
+    .card-inner {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+
+    .card-photo {
+      flex: 1;
+      background-size: cover;
+      background-position: center;
+    }
+
+    .card-info {
+      position: absolute;
+      left: 16px;
+      right: 16px;
+      bottom: 16px;
+      color: #fff;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+      background: linear-gradient(transparent, rgba(0,0,0,0.7));
+      padding: 20px 16px 16px;
+      border-bottom-left-radius: 22px;
+      border-bottom-right-radius: 22px;
+    }
+
+    .card-name-age {
+      font-size: 24px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .card-city {
+      font-size: 16px;
+      margin-bottom: 8px;
+      opacity: 0.9;
+    }
+
+    .card-bio {
+      font-size: 14px;
+      opacity: 0.8;
+    }
+
+    .action-buttons {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 15px;
+      padding: 20px 0;
+      flex-shrink: 0;
+      background: #f5f2ec;
+    }
+
+    .dark .action-buttons {
+      background: #1a1a1a;
+    }
+
+    .action-main-buttons {
+      display: flex;
+      justify-content: center;
+      gap: 30px;
+    }
+
+    .action-buttons button {
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .action-buttons button:hover {
+      transform: scale(1.05);
+      box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+    }
+
+    .action-buttons button:active {
+      transform: scale(0.95);
+    }
+
+    .skip-btn, .like-btn, .refresh-btn {
+      width: 60px;
+      height: 60px;
+      font-size: 24px;
+    }
+
+    .skip-btn {
+      background: #fff;
+      color: #ff3b30;
+      border: 2px solid #ff3b30;
+    }
+
+    .like-btn {
+      background: #fff;
+      color: #34c759;
+      border: 2px solid #34c759;
+    }
+
+    .refresh-btn {
+      background: #fff;
+      color: #007aff;
+      border: 2px solid #007aff;
+      display: none;
+    }
+
+    .refresh-btn.show {
+      display: flex;
+    }
+
+    button {
+      cursor: pointer;
+      border: none;
+      background: #fff;
+      padding: 10px;
+      border-radius: 10px;
+      transition: opacity 0.2s;
+    }
+
+    button:hover {
+      opacity: 0.8;
+    }
+
+    .empty-text {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      font-size: 18px;
+      color: #666;
+      text-align: center;
+      padding: 20px;
+      gap: 15px;
+    }
+
+    .liked-panel, .who-liked-panel, .create-panel, .profile-view-panel, .auth-panel {
+      position: fixed;
+      inset: 0;
+      background: #f5f2ec;
+      display: none;
+      flex-direction: column;
+      padding: 12px;
+      z-index: 40;
+    }
+
+    .liked-panel[aria-hidden="false"],
+    .who-liked-panel[aria-hidden="false"],
+    .create-panel[aria-hidden="false"],
+    .profile-view-panel[aria-hidden="false"],
+    .auth-panel[aria-hidden="false"] {
+      display: flex;
+    }
+
+    .liked-header {
+      display: flex;
+      align-items: center;
+      padding: 10px 0;
+      margin-bottom: 12px;
+    }
+
+    .back-btn {
+      width: 40px;
+      height: 40px;
+      font-size: 18px;
+      margin-right: 10px;
+    }
+
+    .liked-title {
+      font-size: 18px;
+      font-weight: 600;
+      flex: 1;
+    }
+
+    .liked-title-heart {
+      margin-right: 6px;
+    }
+
+    .liked-list, .who-liked-list {
+      flex: 1;
+      overflow-y: auto;
+      padding-bottom: 10px;
+    }
+
+    .liked-item, .who-liked-item {
+      display: flex;
+      align-items: center;
+      padding: 12px;
+      background: #fff;
+      border-radius: 12px;
+      margin-bottom: 8px;
+      cursor: pointer;
+      transition: transform 0.2s;
+      gap: 12px;
+    }
+
+    .who-liked-item {
+      padding: 8px 12px;
+    }
+
+    .liked-item:hover, .who-liked-item:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    .profile-photo-small {
+      width: 50px;
+      height: 50px;
+      border-radius: 10px;
+      background-size: cover;
+      background-position: center;
+      flex-shrink: 0;
+    }
+
+    .profile-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .profile-name-age {
+      font-weight: 600;
+      font-size: 16px;
+      margin-bottom: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .profile-city {
+      font-size: 14px;
+      color: #666;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .dark .profile-city {
+      color: #aaa;
+    }
+
+    .item-actions {
+      display: flex;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .item-action-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      border: none;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+
+    .view-btn {
+      background: #007aff;
+      color: white;
+    }
+
+    .unlike-btn {
+      background: #ff3b30;
+      color: white;
+    }
+
+    .like-back-btn {
+      background: #34c759;
+      color: white;
+    }
+
+    .create-card, .profile-view-card, .auth-card {
+      background: #fff;
+      border-radius: 14px;
+      padding: 18px;
+      max-width: 420px;
+      margin: auto;
+      width: 100%;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+
+    .create-header, .profile-view-header, .auth-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .create-close, .profile-view-close, .auth-close {
+      width: 32px;
+      height: 32px;
+      font-size: 18px;
+    }
+
+    .create-body input,
+    .create-body textarea,
+    .auth-body input {
+      width: 100%;
+      padding: 10px;
+      margin: 6px 0;
+      border-radius: 10px;
+      border: 1px solid #e7e2d8;
+      font-family: inherit;
+    }
+
+    .create-body textarea {
+      min-height: 64px;
+      resize: vertical;
+    }
+
+    .create-actions, .auth-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .reg-btn {
+      flex: 1;
+      padding: 12px;
+      background: #007aff;
+      color: white;
+      font-weight: 600;
+      width: 100%;
+    }
+
+    .reg-btn.subtle {
+      background: #e7e2d8;
+      color: #1d1b16;
+    }
+
+    .auth-tabs {
+      display: flex;
+      margin-bottom: 20px;
+      border-bottom: 1px solid #e7e2d8;
+    }
+
+    .auth-tab {
+      flex: 1;
+      padding: 12px;
+      text-align: center;
+      cursor: pointer;
+      border-bottom: 3px solid transparent;
+      font-weight: 500;
+    }
+
+    .auth-tab.active {
+      border-bottom-color: #007aff;
+      font-weight: 600;
+    }
+
+    .auth-message {
+      padding: 10px;
+      border-radius: 8px;
+      margin: 10px 0;
+      text-align: center;
+      display: none;
+    }
+
+    .auth-message.success {
+      background: #d4edda;
+      color: #155724;
+      display: block;
+    }
+
+    .auth-message.error {
+      background: #f8d7da;
+      color: #721c24;
+      display: block;
+    }
+
+    .user-info {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      color: #666;
+    }
+
+    .user-email {
+      font-weight: 500;
+    }
+
+    .create-preview-area {
+      margin-top: 16px;
+      display: none;
+    }
+
+    .create-preview-area[aria-hidden="false"] {
+      display: block;
+    }
+
+    .profile-view-content {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .profile-view-photo {
+      width: 100%;
+      height: 300px;
+      border-radius: 12px;
+      background-size: cover;
+      background-position: center;
+    }
+
+    .profile-view-info {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .profile-view-info div {
+      padding: 12px;
+      border-radius: 10px;
+      background: #f9f9f9;
+    }
+
+    .profile-view-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .profile-view-name {
+      font-size: 24px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .profile-view-age {
+      font-size: 18px;
+      color: #666;
+    }
+
+    .profile-view-field {
+      margin-bottom: 8px;
+    }
+
+    .profile-view-label {
+      font-weight: 600;
+      margin-bottom: 4px;
+      display: block;
+    }
+
+    .profile-view-value {
+      color: #666;
+    }
+
+    .dark .profile-view-value {
+      color: #aaa;
+    }
+
+    @media (max-width: 768px) {
+      .top-bar {
+        padding: 8px 12px;
+      }
+      
+      .city-filter {
+        font-size: 12px;
+        padding: 4px 8px;
+        height: 32px;
+      }
+      
+      .card-stack {
+        height: 420px;
+        max-width: 320px;
+      }
+      
+      .card-name-age {
+        font-size: 22px;
+      }
+      
+      .action-main-buttons {
+        gap: 20px;
+      }
+      
+      .skip-btn, .like-btn, .refresh-btn {
+        width: 55px;
+        height: 55px;
+        font-size: 22px;
+      }
+      
+      .profile-view-card, .auth-card {
+        padding: 14px;
+        max-width: 95%;
+      }
+      
+      .profile-view-photo {
+        height: 250px;
+      }
+      
+      .profile-photo-small {
+        width: 45px;
+        height: 45px;
+      }
+      
+      .liked-item, .who-liked-item {
+        padding: 10px;
+        gap: 10px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .top-bar {
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      
+      .logo {
+        font-size: 16px;
+      }
+      
+      .city-filter {
+        font-size: 11px;
+        padding: 3px 6px;
+      }
+      
+      .card-stack {
+        height: 380px;
+        max-width: 280px;
+      }
+      
+      .card-name-age {
+        font-size: 20px;
+      }
+      
+      .action-main-buttons {
+        gap: 15px;
+      }
+      
+      .skip-btn, .like-btn, .refresh-btn {
+        width: 50px;
+        height: 50px;
+        font-size: 20px;
+      }
+      
+      .item-actions {
+        flex-direction: column;
+      }
+      
+      .item-action-btn {
+        width: 32px;
+        height: 32px;
+        font-size: 14px;
+      }
+      
+      .profile-view-photo {
+        height: 200px;
+      }
+      
+      .profile-photo-small {
+        width: 40px;
+        height: 40px;
+      }
+      
+      .profile-name-age {
+        font-size: 14px;
+      }
+      
+      .profile-city {
+        font-size: 12px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <header class="top-bar">
+      <div class="logo-row" title="Кликните, чтобы вставить URL логотипа">
+        <img id="logo-img" class="logo-img" src="" alt="Логотип" />
+        <div class="logo">Взгляд</div>
+      </div>
+      
+      <!-- City filter -->
+      <select id="city-filter" class="city-filter" aria-label="Фильтр города">
+        <option value="all">Все города</option>
+        <option value="Москва">Москва</option>
+        <option value="Санкт-Петербург">Санкт-Петербург</option>
+        <option value="Екатеринбург">Екатеринбург</option>
+        <option value="Казань">Казань</option>
+        <option value="Новосибирск">Новосибирск</option>
+        <option value="Владивосток">Владивосток</option>
+        <option value="Ростов-на-Дону">Ростов-на-Дону</option>
+        <option value="Красноярск">Красноярск</option>
+        <option value="Воронеж">Воронеж</option>
+        <option value="Самара">Самара</option>
+        <option value="Омск">Омск</option>
+        <option value="Уфа">Уфа</option>
+        <option value="Челябинск">Челябинск</option>
+        <option value="Пермь">Пермь</option>
+      </select>
+      
+      <!-- Gender filter -->
+      <select id="gender-filter" class="city-filter" aria-label="Фильтр по полу">
+        <option value="all">Любой пол</option>
+        <option value="male">Мужчина</option>
+        <option value="female">Женщина</option>
+      </select>
+      
+      <button id="theme-toggle" class="theme-toggle" aria-label="Переключить тему">🌓</button>
+      <button id="saved-btn" class="saved-btn header-saved" aria-label="Понравившиеся">❤</button>
+      <button id="who-liked-btn" class="saved-btn header-saved" aria-label="Кто лайкнул меня">👀</button>
+      <button id="create-btn" class="create-btn" aria-label="Создать анкету">＋</button>
+      <button id="auth-btn" class="auth-btn" aria-label="Вход/Регистрация">👤</button>
+    </header>
+
+    <div class="main-content">
+      <div class="card-container">
+        <div class="card-stack">
+          <!-- Cards will be injected here -->
+        </div>
+      </div>
+      
+      <div class="action-buttons">
+        <div class="action-main-buttons">
+          <button class="skip-btn" id="skip-btn" aria-label="Пропустить">✕</button>
+          <button class="like-btn" id="like-btn" aria-label="Лайк">❤</button>
+        </div>
+        <button class="refresh-btn" id="refresh-btn" aria-label="Обновить карточки">🔄</button>
+      </div>
+    </div>
+
+    <!-- Liked people panel -->
+    <section class="liked-panel" aria-hidden="true">
+      <header class="liked-header">
+        <button class="back-btn" aria-label="Назад">←</button>
+        <span class="liked-title"><span class="liked-title-heart" aria-hidden="true">❤</span>Понравившиеся</span>
+      </header>
+      <div class="liked-list">
+        <!-- Liked profiles will be rendered here -->
+      </div>
+    </section>
+
+    <!-- "Who liked me" panel: shows profiles that liked you -->
+    <section class="who-liked-panel" aria-hidden="true">
+      <header class="liked-header">
+        <button class="who-back-btn back-btn" aria-label="Назад">←</button>
+        <span class="liked-title"><span class="liked-title-heart" aria-hidden="true">👀</span>Кто лайкнул меня</span>
+      </header>
+      <div class="who-liked-list">
+        <!-- Profiles who liked the user will be rendered here -->
+      </div>
+    </section>
+
+    <!-- Create profile panel -->
+    <section class="create-panel" aria-hidden="true">
+      <div class="create-card">
+        <header class="create-header">
+          <h3>Создать анкету</h3>
+          <button class="create-close" aria-label="Закрыть">✕</button>
+        </header>
+        <div class="create-body">
+          <input id="create-name" placeholder="Имя" />
+          <input id="create-age" type="number" placeholder="Возраст" />
+          <input id="create-city" placeholder="Город (например, Москва • онлайн)" />
+          <input id="create-photo" placeholder="URL фото" />
+          <input id="create-contact" placeholder="Контакт (например, @ваш_ник или телефон)" />
+          <textarea id="create-bio" placeholder="Кратко о себе"></textarea>
+          <input id="create-tags" placeholder="Теги через запятую" />
+          <div class="create-actions">
+            <button id="create-preview" class="reg-btn subtle">Просмотреть</button>
+            <button id="create-save" class="reg-btn">Сохранить в стеке</button>
+          </div>
+          <div class="create-preview-area" aria-hidden="true"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Profile view panel -->
+    <section class="profile-view-panel" aria-hidden="true">
+      <div class="profile-view-card">
+        <header class="profile-view-header">
+          <h3>Просмотр анкеты</h3>
+          <button class="profile-view-close" aria-label="Закрыть">✕</button>
+        </header>
+        <div class="profile-view-content">
+          <div class="profile-view-photo" id="profile-view-photo"></div>
+          <div class="profile-view-info">
+            <div>
+              <div class="profile-view-name" id="profile-view-name"></div>
+              <div class="profile-view-age" id="profile-view-age"></div>
+            </div>
+            <div class="profile-view-field">
+              <span class="profile-view-label">Город:</span>
+              <span class="profile-view-value" id="profile-view-city"></span>
+            </div>
+            <div class="profile-view-field">
+              <span class="profile-view-label">О себе:</span>
+              <span class="profile-view-value" id="profile-view-bio"></span>
+            </div>
+            <div class="profile-view-field">
+              <span class="profile-view-label">Контакты:</span>
+              <span class="profile-view-value" id="profile-view-contact"></span>
+            </div>
+            <div class="profile-view-field">
+              <span class="profile-view-label">Теги:</span>
+              <span class="profile-view-value" id="profile-view-tags"></span>
+            </div>
+          </div>
+          <div class="profile-view-actions">
+            <button id="profile-view-like-btn" class="reg-btn" style="background: #34c759;">Лайкнуть</button>
+            <button id="profile-view-unlike-btn" class="reg-btn subtle" style="background: #ff3b30; color: white;">Убрать лайк</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Auth panel -->
+    <section class="auth-panel" aria-hidden="true">
+      <div class="auth-card">
+        <header class="auth-header">
+          <h3>Вход и регистрация</h3>
+          <button class="auth-close" aria-label="Закрыть">✕</button>
+        </header>
+        <div class="auth-tabs">
+          <div class="auth-tab active" id="login-tab">Вход</div>
+          <div class="auth-tab" id="register-tab">Регистрация</div>
+        </div>
+        <div class="auth-body">
+          <div id="auth-message" class="auth-message"></div>
+          
+          <!-- Login form -->
+          <div id="login-form">
+            <input id="login-email" type="email" placeholder="Email" />
+            <input id="login-password" type="password" placeholder="Пароль" />
+            <div class="auth-actions">
+              <button id="login-btn" class="reg-btn">Войти</button>
+            </div>
+          </div>
+          
+          <!-- Register form -->
+          <div id="register-form" style="display: none;">
+            <input id="register-email" type="email" placeholder="Email" />
+            <input id="register-password" type="password" placeholder="Пароль" />
+            <input id="register-confirm-password" type="password" placeholder="Подтвердите пароль" />
+            <div class="auth-actions">
+              <button id="register-btn" class="reg-btn">Зарегистрироваться</button>
+            </div>
+          </div>
+          
+          <!-- Logout form -->
+          <div id="logout-form" style="display: none;">
+            <div class="user-info">
+              <span>Вы вошли как:</span>
+              <span class="user-email" id="current-user-email"></span>
+            </div>
+            <div class="auth-actions">
+              <button id="logout-btn" class="reg-btn" style="background: #ff3b30;">Выйти</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    // Dating app with full functionality
+    let profiles = [];
+    let currentIndex = 0;
+    let myProfile = null;
+    let darkMode = localStorage.getItem('darkMode') === '1';
+    let currentUser = JSON.parse(localStorage.getItem('currentUser')) || null;
+    let viewedProfiles = JSON.parse(localStorage.getItem(`viewedProfiles_${currentUser?.email}`) || '[]');
+    let currentViewingProfile = null;
+    let isViewingFromLikedList = false;
+    
+    // DOM elements
+    const cardStack = document.querySelector('.card-stack');
+    const themeToggle = document.getElementById('theme-toggle');
+    const createBtn = document.getElementById('create-btn');
+    const createPanel = document.querySelector('.create-panel');
+    const createClose = document.querySelector('.create-close');
+    const createSave = document.getElementById('create-save');
+    const authBtn = document.getElementById('auth-btn');
+    const likedPanel = document.querySelector('.liked-panel');
+    const likedList = document.querySelector('.liked-list');
+    const whoLikedPanel = document.querySelector('.who-liked-panel');
+    const whoLikedList = document.querySelector('.who-liked-list');
+    const whoLikedBtn = document.getElementById('who-liked-btn');
+    const cityFilter = document.getElementById('city-filter');
+    const genderFilter = document.getElementById('gender-filter');
+    const likeBtn = document.getElementById('like-btn');
+    const skipBtn = document.getElementById('skip-btn');
+    const refreshBtn = document.getElementById('refresh-btn');
+    const profileViewPanel = document.querySelector('.profile-view-panel');
+    const profileViewClose = document.querySelector('.profile-view-close');
+    const profileViewLikeBtn = document.getElementById('profile-view-like-btn');
+    const profileViewUnlikeBtn = document.getElementById('profile-view-unlike-btn');
+    const authPanel = document.querySelector('.auth-panel');
+    const authClose = document.querySelector('.auth-close');
+
+    // Sample profiles (using your data)
+    const sampleProfiles = [
+      {"id": 1, "name": "Анна", "age": 24, "city": "Москва", "bio": "Люблю кофе и путешествия", "photo": "https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?w=800&q=80", "contact": "@anna_travel", "tags": "путешествия, кофе, фотография"},
+      {"id": 2, "name": "Данил", "age": 27, "city": "Санкт-Петербург", "bio": "Музыка, спорт, кино", "photo": "https://images.pexels.com/photos/614810/pexels-photo-614810.jpeg?w=800&q=80", "contact": "@danil_music", "tags": "музыка, спорт, кино"},
+      {"id": 3, "name": "Катя", "age": 22, "city": "Москва", "bio": "Фотограф и художник", "photo": "https://images.pexels.com/photos/1181686/pexels-photo-1181686.jpeg?w=800&q=80", "contact": "@katya_art", "tags": "фотография, искусство, живопись"},
+      {"id": 4, "name": "Илья", "age": 29, "city": "Екатеринбург", "bio": "IT-специалист, люблю программировать", "photo": "https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg?w=800&q=80", "contact": "@ilya_dev", "tags": "программирование, IT, технологии"},
+      {"id": 5, "name": "Маша", "age": 26, "city": "Казань", "bio": "Кондитер, пеку торты", "photo": "https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?w=800&q=80", "contact": "@masha_cakes", "tags": "выпечка, кулинария, десерты"},
+      {"id": 6, "name": "Олег", "age": 31, "city": "Новосибирск", "bio": "Инженер, увлекаюсь техникой", "photo": "https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?w=800&q=80", "contact": "+7 999 123 45 67", "tags": "техника, инженерия, авто"},
+      {"id": 7, "name": "Света", "age": 23, "city": "Владивосток", "bio": "Художница, рисую портреты", "photo": "https://images.pexels.com/photos/3777916/pexels-photo-3777916.jpeg?w=800&q=80", "contact": "@sveta_art", "tags": "портреты, искусство, творчество"},
+      {"id": 8, "name": "Никита", "age": 28, "city": "Ростов-на-Дону", "bio": "Разработчик, люблю Python", "photo": "https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg?w=800&q=80", "contact": "@nikita_python", "tags": "Python, разработка, open source"},
+      {"id": 9, "name": "Лера", "age": 25, "city": "Красноярск", "bio": "Музыкант, играю на гитаре", "photo": "https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?w=800&q=80", "contact": "@lera_guitar", "tags": "музыка, гитара, концерты"},
+      {"id": 10, "name": "Павел", "age": 30, "city": "Воронеж", "bio": "Путешественник, люблю природу", "photo": "https://images.pexels.com/photos/614810/pexels-photo-614810.jpeg?w=800&q=80", "contact": "@pavel_travel", "tags": "путешествия, природа, hiking"},
+      {"id": 11, "name": "Оля", "age": 27, "city": "Самара", "bio": "Дизайнер, работаю с брендами", "photo": "https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?w=800&q=80", "contact": "@olya_design", "tags": "дизайн, брендинг, графика"},
+      {"id": 12, "name": "Роман", "age": 33, "city": "Омск", "bio": "Фотограф, снимаю ночью", "photo": "https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?w=800&q=80", "contact": "@roman_night", "tags": "фотография, ночь, астрофото"},
+      {"id": 13, "name": "Юля", "age": 24, "city": "Уфа", "bio": "Йога и медитация", "photo": "https://images.pexels.com/photos/1181686/pexels-photo-1181686.jpeg?w=800&q=80", "contact": "@yulia_yoga", "tags": "йога, медитация, здоровье"},
+      {"id": 14, "name": "Артем", "age": 26, "city": "Челябинск", "bio": "Спортсмен, тренер по фитнесу", "photo": "https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg?w=800&q=80", "contact": "@artem_fit", "tags": "фитнес, спорт, тренировки"},
+      {"id": 15, "name": "Вика", "age": 28, "city": "Пермь", "bio": "Блогер, пишу о путешествиях", "photo": "https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?w=800&q=80", "contact": "@vika_blog", "tags": "блог, путешествия, писательство"}
+    ];
+
+    // Load profiles
+    function loadProfiles() {
+      // Start with all profiles
+      profiles = [...sampleProfiles];
+      
+      // Filter out already viewed profiles for current user
+      if (currentUser) {
+        viewedProfiles = JSON.parse(localStorage.getItem(`viewedProfiles_${currentUser.email}`) || '[]');
+        profiles = profiles.filter(profile => !viewedProfiles.includes(profile.id));
+      }
+      
+      // Apply city filter
+      const selectedCity = cityFilter.value;
+      if (selectedCity !== 'all') {
+        profiles = profiles.filter(profile => profile.city === selectedCity);
+      }
+      
+      // Apply gender filter
+      const selectedGender = genderFilter.value;
+      if (selectedGender !== 'all') {
+        if (selectedGender === 'male') {
+          profiles = profiles.filter(profile => 
+            ['Данил', 'Илья', 'Олег', 'Никита', 'Павел', 'Роман', 'Артем'].includes(profile.name)
+          );
+        } else if (selectedGender === 'female') {
+          profiles = profiles.filter(profile => 
+            ['Анна', 'Катя', 'Маша', 'Света', 'Лера', 'Оля', 'Юля', 'Вика'].includes(profile.name)
+          );
+        }
+      }
+      
+      currentIndex = 0;
+      renderCard();
+    }
+
+    // Render current card
+    function renderCard() {
+      if (!cardStack) return;
+      cardStack.innerHTML = '';
+      
+      if (currentIndex >= profiles.length) {
+        cardStack.innerHTML = '<div class="empty-text">Нет доступных профилей<br><br>Нажмите 🔄 чтобы обновить</div>';
+        refreshBtn.classList.add('show');
+        return;
+      }
+      
+      refreshBtn.classList.remove('show');
+      
+      const profile = profiles[currentIndex];
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.innerHTML = `
+        <div class="card-inner">
+          <div class="card-photo" style="background-image: url(${profile.photo || 'https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?w=800&q=80'})"></div>
+          <div class="card-info">
+            <div class="card-name-age">${profile.name}, ${profile.age}</div>
+            <div class="card-city">${profile.city || ''}</div>
+            <div class="card-bio">${profile.bio || ''}</div>
+          </div>
+        </div>
+      `;
+      cardStack.appendChild(card);
+    }
+
+    // Next card
+    function nextCard() {
+      if (currentIndex < profiles.length - 1) {
+        currentIndex++;
+        renderCard();
+      } else {
+        // Show refresh button when no more cards
+        cardStack.innerHTML = '<div class="empty-text">Нет доступных профилей<br><br>Нажмите 🔄 чтобы обновить</div>';
+        refreshBtn.classList.add('show');
+      }
+    }
+
+    // Refresh profiles
+    function refreshProfiles() {
+      if (currentUser) {
+        // Clear viewed profiles for current user
+        localStorage.removeItem(`viewedProfiles_${currentUser.email}`);
+        viewedProfiles = [];
+      }
+      
+      // Reset to beginning and reload
+      currentIndex = 0;
+      loadProfiles();
+      showNotification('Карточки обновлены!');
+    }
+
+    // Like current profile
+    function likeCurrentProfile() {
+      if (currentIndex < profiles.length) {
+        const profile = profiles[currentIndex];
+        likeProfile(profile);
+        
+        // Mark as viewed
+        if (currentUser) {
+          viewedProfiles.push(profile.id);
+          localStorage.setItem(`viewedProfiles_${currentUser.email}`, JSON.stringify(viewedProfiles));
+        }
+        
+        nextCard();
+      }
+    }
+
+    // Like a specific profile
+    function likeProfile(profile) {
+      if (!currentUser) {
+        showAuthMessage('Для лайков нужно войти в аккаунт', 'error');
+        authPanel.setAttribute('aria-hidden', 'false');
+        return false;
+      }
+      
+      const userLikes = getUserLikes();
+      
+      // Check if already liked
+      if (!userLikes.some(p => p.id === profile.id)) {
+        userLikes.push(profile);
+        saveUserLikes(userLikes);
+        
+        // Add to "who liked me" for that profile (simulated)
+        const profileLikedBy = getWhoLikedMe(profile.id);
+        if (!profileLikedBy.some(p => p.email === currentUser.email)) {
+          profileLikedBy.push({
+            email: currentUser.email,
+            name: currentUser.email.split('@')[0],
+            timestamp: Date.now()
+          });
+          saveWhoLikedMe(profile.id, profileLikedBy);
+        }
+        
+        // Add animation effect
+        if (likeBtn) {
+          likeBtn.style.transform = 'scale(1.2)';
+          likeBtn.style.backgroundColor = '#34c759';
+          likeBtn.style.color = 'white';
+          
+          setTimeout(() => {
+            likeBtn.style.transform = 'scale(1)';
+            likeBtn.style.backgroundColor = '';
+            likeBtn.style.color = '';
+          }, 300);
+        }
+        
+        showNotification(`Вы лайкнули ${profile.name}!`);
+        return true;
+      }
+      return false;
+    }
+
+    // Unlike a profile
+    function unlikeProfile(profile) {
+      if (!currentUser) return false;
+      
+      const userLikes = getUserLikes();
+      const index = userLikes.findIndex(p => p.id === profile.id);
+      if (index !== -1) {
+        userLikes.splice(index, 1);
+        saveUserLikes(userLikes);
+        showNotification(`Лайк для ${profile.name} убран`);
+        return true;
+      }
+      return false;
+    }
+
+    // Skip current profile
+    function skipCurrentProfile() {
+      if (currentIndex < profiles.length) {
+        const profile = profiles[currentIndex];
+        
+        // Mark as viewed
+        if (currentUser) {
+          viewedProfiles.push(profile.id);
+          localStorage.setItem(`viewedProfiles_${currentUser.email}`, JSON.stringify(viewedProfiles));
+        }
+        
+        // Add animation effect
+        if (skipBtn) {
+          skipBtn.style.transform = 'scale(1.2)';
+          skipBtn.style.backgroundColor = '#ff3b30';
+          skipBtn.style.color = 'white';
+          
+          setTimeout(() => {
+            skipBtn.style.transform = 'scale(1)';
+            skipBtn.style.backgroundColor = '';
+            skipBtn.style.color = '';
+          }, 300);
+        }
+        
+        showNotification(`Вы пропустили ${profile.name}`);
+        nextCard();
+      }
+    }
+
+    // Get user's liked profiles
+    function getUserLikes() {
+      if (!currentUser) return [];
+      return JSON.parse(localStorage.getItem(`likes_${currentUser.email}`) || '[]');
+    }
+
+    // Save user's liked profiles
+    function saveUserLikes(likes) {
+      if (currentUser) {
+        localStorage.setItem(`likes_${currentUser.email}`, JSON.stringify(likes));
+      }
+    }
+
+    // Get who liked a profile
+    function getWhoLikedMe(profileId) {
+      return JSON.parse(localStorage.getItem(`likedBy_${profileId}`) || '[]');
+    }
+
+    // Save who liked a profile
+    function saveWhoLikedMe(profileId, likedBy) {
+      localStorage.setItem(`likedBy_${profileId}`, JSON.stringify(likedBy));
+    }
+
+    // Get who liked current user
+    function getWhoLikedCurrentUser() {
+      if (!currentUser || !myProfile) return [];
+      
+      const likedBy = getWhoLikedMe(myProfile.id);
+      // Convert likedBy data to profile format
+      return likedBy.map(like => {
+        // Try to find matching profile
+        const profile = sampleProfiles.find(p => 
+          p.name.toLowerCase().includes(like.name.toLowerCase()) || 
+          like.name.toLowerCase().includes(p.name.toLowerCase())
+        );
+        
+        if (profile) {
+          return profile;
+        }
+        
+        // Fallback to basic profile
+        return {
+          id: `user_${like.email}`,
+          name: like.name,
+          age: Math.floor(Math.random() * 10) + 25,
+          city: sampleProfiles[Math.floor(Math.random() * sampleProfiles.length)].city,
+          bio: "Пользователь сайта",
+          photo: "https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?w=800&q=80",
+          contact: like.email,
+          tags: "пользователь"
+        };
+      });
+    }
+
+    // Show notification
+    function showNotification(message) {
+      // Remove existing notification
+      const existingNotification = document.querySelector('.notification');
+      if (existingNotification) {
+        existingNotification.remove();
+      }
+      
+      const notification = document.createElement('div');
+      notification.className = 'notification';
+      notification.textContent = message;
+      notification.style.cssText = `
+        position: fixed;
+        top: 80px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0,0,0,0.8);
+        color: white;
+        padding: 12px 20px;
+        border-radius: 10px;
+        z-index: 1000;
+        font-size: 14px;
+        animation: fadeInOut 3s ease-in-out;
+      `;
+      
+      // Add styles for animation
+      const style = document.createElement('style');
+      style.textContent = `
+        @keyframes fadeInOut {
+          0% { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+          15% { opacity: 1; transform: translateX(-50%) translateY(0); }
+          85% { opacity: 1; transform: translateX(-50%) translateY(0); }
+          100% { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+        }
+      `;
+      document.head.appendChild(style);
+      
+      document.body.appendChild(notification);
+      
+      // Remove notification after animation
+      setTimeout(() => {
+        if (notification.parentNode) {
+          notification.remove();
+        }
+      }, 3000);
+    }
+
+    // Swipe handlers
+    let startX = 0;
+    if (cardStack) {
+      cardStack.addEventListener('touchstart', (e) => {
+        startX = e.touches[0].clientX;
+      });
+      
+      cardStack.addEventListener('touchend', (e) => {
+        const endX = e.changedTouches[0].clientX;
+        const diff = endX - startX;
+        if (Math.abs(diff) > 100) {
+          if (diff > 0) {
+            // Swipe right = like
+            likeCurrentProfile();
+          } else {
+            // Swipe left = skip
+            skipCurrentProfile();
+          }
+        }
+      });
+    }
+
+    // Button handlers
+    if (likeBtn) {
+      likeBtn.addEventListener('click', likeCurrentProfile);
+    }
+    
+    if (skipBtn) {
+      skipBtn.addEventListener('click', skipCurrentProfile);
+    }
+    
+    if (refreshBtn) {
+      refreshBtn.addEventListener('click', refreshProfiles);
+    }
+
+    // Create profile panel
+    if (createBtn) {
+      createBtn.addEventListener('click', () => {
+        if (createPanel) createPanel.setAttribute('aria-hidden', 'false');
+      });
+    }
+
+    if (createClose) {
+      createClose.addEventListener('click', () => {
+        if (createPanel) createPanel.setAttribute('aria-hidden', 'true');
+      });
+    }
+
+    // Close panels with back buttons
+    document.querySelectorAll('.back-btn, .who-back-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (likedPanel) likedPanel.setAttribute('aria-hidden', 'true');
+        if (whoLikedPanel) whoLikedPanel.setAttribute('aria-hidden', 'true');
+      });
+    });
+
+    // Close profile view panel
+    if (profileViewClose) {
+      profileViewClose.addEventListener('click', () => {
+        profileViewPanel.setAttribute('aria-hidden', 'true');
+        currentViewingProfile = null;
+      });
+    }
+
+    // Auth panel
+    if (authBtn) {
+      authBtn.addEventListener('click', () => {
+        updateAuthUI();
+        authPanel.setAttribute('aria-hidden', 'false');
+      });
+    }
+    
+    if (authClose) {
+      authClose.addEventListener('click', () => {
+        authPanel.setAttribute('aria-hidden', 'true');
+      });
+    }
+
+    // Auth tabs
+    document.getElementById('login-tab').addEventListener('click', () => {
+      document.getElementById('login-tab').classList.add('active');
+      document.getElementById('register-tab').classList.remove('active');
+      document.getElementById('login-form').style.display = 'block';
+      document.getElementById('register-form').style.display = 'none';
+    });
+    
+    document.getElementById('register-tab').addEventListener('click', () => {
+      document.getElementById('register-tab').classList.add('active');
+      document.getElementById('login-tab').classList.remove('active');
+      document.getElementById('register-form').style.display = 'block';
+      document.getElementById('login-form').style.display = 'none';
+    });
+
+    // Login function
+    document.getElementById('login-btn').addEventListener('click', () => {
+      const email = document.getElementById('login-email').value;
+      const password = document.getElementById('login-password').value;
+      
+      if (!email || !password) {
+        showAuthMessage('Заполните все поля', 'error');
+        return;
+      }
+      
+      const users = JSON.parse(localStorage.getItem('users') || '[]');
+      const user = users.find(u => u.email === email && u.password === password);
+      
+      if (user) {
+        currentUser = { email: user.email };
+        localStorage.setItem('currentUser', JSON.stringify(currentUser));
+        updateAuthUI();
+        showAuthMessage('Вход выполнен успешно!', 'success');
+        setTimeout(() => {
+          authPanel.setAttribute('aria-hidden', 'true');
+          loadProfiles();
+        }, 1000);
+      } else {
+        showAuthMessage('Неверный email или пароль', 'error');
+      }
+    });
+
+    // Register function
+    document.getElementById('register-btn').addEventListener('click', () => {
+      const email = document.getElementById('register-email').value;
+      const password = document.getElementById('register-password').value;
+      const confirmPassword = document.getElementById('register-confirm-password').value;
+      
+      if (!email || !password || !confirmPassword) {
+        showAuthMessage('Заполните все поля', 'error');
+        return;
+      }
+      
+      if (password !== confirmPassword) {
+        showAuthMessage('Пароли не совпадают', 'error');
+        return;
+      }
+      
+      if (password.length < 6) {
+        showAuthMessage('Пароль должен быть не менее 6 символов', 'error');
+        return;
+      }
+      
+      const users = JSON.parse(localStorage.getItem('users') || '[]');
+      
+      if (users.some(u => u.email === email)) {
+        showAuthMessage('Пользователь с таким email уже существует', 'error');
+        return;
+      }
+      
+      users.push({ email, password });
+      localStorage.setItem('users', JSON.stringify(users));
+      
+      currentUser = { email };
+      localStorage.setItem('currentUser', JSON.stringify(currentUser));
+      updateAuthUI();
+      showAuthMessage('Регистрация выполнена успешно!', 'success');
+      setTimeout(() => {
+        authPanel.setAttribute('aria-hidden', 'true');
+        loadProfiles();
+      }, 1000);
+    });
+
+    // Logout function
+    document.getElementById('logout-btn').addEventListener('click', () => {
+      currentUser = null;
+      localStorage.removeItem('currentUser');
+      updateAuthUI();
+      showAuthMessage('Вы вышли из аккаунта', 'success');
+      setTimeout(() => {
+        authPanel.setAttribute('aria-hidden', 'true');
+        loadProfiles();
+      }, 1000);
+    });
+
+    // Update auth UI
+    function updateAuthUI() {
+      const authMessage = document.getElementById('auth-message');
+      authMessage.className = 'auth-message';
+      authMessage.textContent = '';
+      
+      if (currentUser) {
+        document.getElementById('current-user-email').textContent = currentUser.email;
+        document.getElementById('login-form').style.display = 'none';
+        document.getElementById('register-form').style.display = 'none';
+        document.getElementById('logout-form').style.display = 'block';
+        document.getElementById('login-tab').style.display = 'none';
+        document.getElementById('register-tab').style.display = 'none';
+        authBtn.textContent = '👤 ' + currentUser.email.split('@')[0];
+      } else {
+        document.getElementById('login-form').style.display = 'block';
+        document.getElementById('register-form').style.display = 'none';
+        document.getElementById('logout-form').style.display = 'none';
+        document.getElementById('login-tab').style.display = 'block';
+        document.getElementById('register-tab').style.display = 'block';
+        document.getElementById('login-tab').classList.add('active');
+        document.getElementById('register-tab').classList.remove('active');
+        authBtn.textContent = '👤';
+        
+        // Clear form fields
+        document.getElementById('login-email').value = '';
+        document.getElementById('login-password').value = '';
+        document.getElementById('register-email').value = '';
+        document.getElementById('register-password').value = '';
+        document.getElementById('register-confirm-password').value = '';
+      }
+    }
+
+    // Show auth message
+    function showAuthMessage(message, type) {
+      const authMessage = document.getElementById('auth-message');
+      authMessage.textContent = message;
+      authMessage.className = `auth-message ${type}`;
+    }
+
+    // Save profile
+    if (createSave) {
+      createSave.addEventListener('click', () => {
+        const name = document.getElementById('create-name').value;
+        const age = document.getElementById('create-age').value;
+        const city = document.getElementById('create-city').value;
+        const photo = document.getElementById('create-photo').value;
+        const bio = document.getElementById('create-bio').value;
+        const contact = document.getElementById('create-contact').value;
+        const tags = document.getElementById('create-tags').value;
+        
+        if (!name || !age) {
+          alert('Заполните имя и возраст');
+          return;
+        }
+        
+        myProfile = { 
+          id: Date.now(),
+          name, 
+          age: parseInt(age), 
+          city, 
+          photo, 
+          bio,
+          contact,
+          tags
+        };
+        localStorage.setItem('myProfile', JSON.stringify(myProfile));
+        
+        // Add to profiles array
+        profiles.unshift(myProfile);
+        currentIndex = 0;
+        renderCard();
+        
+        showNotification('Профиль создан и добавлен в стек!');
+        if (createPanel) createPanel.setAttribute('aria-hidden', 'true');
+        
+        // Clear form
+        document.getElementById('create-name').value = '';
+        document.getElementById('create-age').value = '';
+        document.getElementById('create-city').value = '';
+        document.getElementById('create-photo').value = '';
+        document.getElementById('create-bio').value = '';
+        document.getElementById('create-contact').value = '';
+        document.getElementById('create-tags').value = '';
+      });
+    }
+
+    // Кнопка "Понравившиеся"
+    const savedBtn = document.getElementById('saved-btn');
+    savedBtn?.addEventListener('click', () => {
+      if (!currentUser) {
+        showAuthMessage('Для просмотра понравившихся нужно войти в аккаунт', 'error');
+        authPanel.setAttribute('aria-hidden', 'false');
+        return;
+      }
+      renderLikedList();
+      likedPanel?.setAttribute('aria-hidden', 'false');
+    });
+
+    // Кнопка "Кто лайкнул меня"
+    if (whoLikedBtn) {
+      whoLikedBtn.addEventListener('click', () => {
+        if (!currentUser) {
+          showAuthMessage('Для просмотра лайков нужно войти в аккаунт', 'error');
+          authPanel.setAttribute('aria-hidden', 'false');
+          return;
+        }
+        renderWhoLikedList();
+        whoLikedPanel?.setAttribute('aria-hidden', 'false');
+      });
+    }
+
+    function renderLikedList() {
+      if (!likedList) return;
+      const userLikes = getUserLikes();
+      likedList.innerHTML = '';
+      
+      if (userLikes.length === 0) {
+        likedList.innerHTML = '<div class="empty-text">Нет понравившихся профилей</div>';
+        return;
+      }
+      
+      userLikes.forEach(profile => {
+        const item = document.createElement('div');
+        item.className = 'liked-item';
+        item.innerHTML = `
+          <div class="profile-photo-small" style="background-image: url(${profile.photo || 'https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?w=800&q=80'})"></div>
+          <div class="profile-info">
+            <div class="profile-name-age">${profile.name}, ${profile.age}</div>
+            <div class="profile-city">${profile.city || 'Город не указан'}</div>
+          </div>
+          <div class="item-actions">
+            <button class="item-action-btn view-btn" data-id="${profile.id}" title="Просмотреть анкету">👁</button>
+            <button class="item-action-btn unlike-btn" data-id="${profile.id}" title="Убрать лайк">✕</button>
+          </div>
+        `;
+        likedList.appendChild(item);
+      });
+      
+      // Add event listeners for buttons
+      document.querySelectorAll('.liked-item .view-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const profileId = parseInt(btn.getAttribute('data-id'));
+          const profile = getUserLikes().find(p => p.id === profileId);
+          if (profile) {
+            isViewingFromLikedList = true;
+            viewProfile(profile);
+          }
+        });
+      });
+      
+      document.querySelectorAll('.liked-item .unlike-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const profileId = parseInt(btn.getAttribute('data-id'));
+          const profile = getUserLikes().find(p => p.id === profileId);
+          if (profile) {
+            unlikeProfile(profile);
+            renderLikedList();
+          }
+        });
+      });
+      
+      // Make entire item clickable to view profile
+      document.querySelectorAll('.liked-item').forEach(item => {
+        item.addEventListener('click', (e) => {
+          if (!e.target.closest('.item-actions')) {
+            const profileId = parseInt(item.querySelector('.view-btn')?.getAttribute('data-id'));
+            const profile = getUserLikes().find(p => p.id === profileId);
+            if (profile) {
+              isViewingFromLikedList = true;
+              viewProfile(profile);
+            }
+          }
+        });
+      });
+    }
+
+    function renderWhoLikedList() {
+      if (!whoLikedList) return;
+      const whoLiked = getWhoLikedCurrentUser();
+      const userLikes = getUserLikes();
+      
+      whoLikedList.innerHTML = '';
+      
+      if (whoLiked.length === 0) {
+        whoLikedList.innerHTML = '<div class="empty-text">Пока никто не лайкнул ваш профиль</div>';
+        return;
+      }
+      
+      whoLiked.forEach(profile => {
+        const isLikedBack = userLikes.some(p => p.id === profile.id);
+        const item = document.createElement('div');
+        item.className = 'who-liked-item';
+        item.innerHTML = `
+          <div class="profile-photo-small" style="background-image: url(${profile.photo || 'https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?w=800&q=80'})"></div>
+          <div class="profile-info">
+            <div class="profile-name-age">${profile.name}, ${profile.age}</div>
+            <div class="profile-city">${profile.city}</div>
+          </div>
+          <div class="item-actions">
+            <button class="item-action-btn view-btn" data-id="${profile.id}" title="Просмотреть анкету">👁</button>
+            ${isLikedBack ? 
+              '<button class="item-action-btn unlike-btn" data-id="' + profile.id + '" title="Убрать лайк">✕</button>' : 
+              '<button class="item-action-btn like-back-btn" data-id="' + profile.id + '" title="Лайкнуть в ответ">❤</button>'
+            }
+          </div>
+        `;
+        whoLikedList.appendChild(item);
+      });
+      
+      // Add event listeners for buttons
+      document.querySelectorAll('.who-liked-item .view-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const profileId = parseInt(btn.getAttribute('data-id'));
+          const profile = getWhoLikedCurrentUser().find(p => p.id === profileId);
+          if (profile) {
+            isViewingFromLikedList = false;
+            viewProfile(profile);
+          }
+        });
+      });
+      
+      document.querySelectorAll('.who-liked-item .like-back-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const profileId = parseInt(btn.getAttribute('data-id'));
+          const profile = getWhoLikedCurrentUser().find(p => p.id === profileId);
+          if (profile) {
+            likeProfile(profile);
+            renderWhoLikedList();
+          }
+        });
+      });
+      
+      document.querySelectorAll('.who-liked-item .unlike-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const profileId = parseInt(btn.getAttribute('data-id'));
+          const profile = getWhoLikedCurrentUser().find(p => p.id === profileId);
+          if (profile) {
+            unlikeProfile(profile);
+            renderWhoLikedList();
+          }
+        });
+      });
+      
+      // Make entire item clickable to view profile
+      document.querySelectorAll('.who-liked-item').forEach(item => {
+        item.addEventListener('click', (e) => {
+          if (!e.target.closest('.item-actions')) {
+            const profileId = parseInt(item.querySelector('.view-btn')?.getAttribute('data-id'));
+            const profile = getWhoLikedCurrentUser().find(p => p.id === profileId);
+            if (profile) {
+              isViewingFromLikedList = false;
+              viewProfile(profile);
+            }
+          }
+        });
+      });
+    }
+
+    // View profile function
+    function viewProfile(profile) {
+      currentViewingProfile = profile;
+      
+      // Fill profile view
+      document.getElementById('profile-view-photo').style.backgroundImage = `url(${profile.photo || 'https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?w=800&q=80'})`;
+      document.getElementById('profile-view-name').textContent = profile.name;
+      document.getElementById('profile-view-age').textContent = `${profile.age} лет`;
+      document.getElementById('profile-view-city').textContent = profile.city || 'Не указан';
+      document.getElementById('profile-view-bio').textContent = profile.bio || 'Не указано';
+      document.getElementById('profile-view-contact').textContent = profile.contact || 'Не указан';
+      document.getElementById('profile-view-tags').textContent = profile.tags || 'Не указаны';
+      
+      // Show/hide appropriate buttons
+      const isLiked = getUserLikes().some(p => p.id === profile.id);
+      if (isLiked) {
+        profileViewLikeBtn.style.display = 'none';
+        profileViewUnlikeBtn.style.display = 'block';
+      } else {
+        profileViewLikeBtn.style.display = 'block';
+        profileViewUnlikeBtn.style.display = 'none';
+      }
+      
+      // Show profile view panel
+      profileViewPanel.setAttribute('aria-hidden', 'false');
+    }
+
+    // Profile view like button
+    if (profileViewLikeBtn) {
+      profileViewLikeBtn.addEventListener('click', () => {
+        if (currentViewingProfile) {
+          if (likeProfile(currentViewingProfile)) {
+            // Update button visibility
+            profileViewLikeBtn.style.display = 'none';
+            profileViewUnlikeBtn.style.display = 'block';
+            
+            // Update lists if they're open
+            if (isViewingFromLikedList) {
+              renderLikedList();
+            } else {
+              renderWhoLikedList();
+            }
+          }
+        }
+      });
+    }
+
+    // Profile view unlike button
+    if (profileViewUnlikeBtn) {
+      profileViewUnlikeBtn.addEventListener('click', () => {
+        if (currentViewingProfile) {
+          if (unlikeProfile(currentViewingProfile)) {
+            // Update button visibility
+            profileViewLikeBtn.style.display = 'block';
+            profileViewUnlikeBtn.style.display = 'none';
+            
+            // Update lists if they're open
+            if (isViewingFromLikedList) {
+              renderLikedList();
+            } else {
+              renderWhoLikedList();
+            }
+            
+            // If viewing from liked list, close profile view
+            if (isViewingFromLikedList) {
+              setTimeout(() => {
+                profileViewPanel.setAttribute('aria-hidden', 'true');
+              }, 500);
+            }
+          }
+        }
+      });
+    }
+
+    // Create preview
+    const createPreview = document.getElementById('create-preview');
+    const createPreviewArea = document.querySelector('.create-preview-area');
+
+    createPreview?.addEventListener('click', () => {
+      const name = document.getElementById('create-name').value || "Имя";
+      const age = document.getElementById('create-age').value || "Возраст";
+      const city = document.getElementById('create-city').value || "Город";
+      const bio = document.getElementById('create-bio').value || "О себе";
+      const photo = document.getElementById('create-photo').value || "https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?w=800&q=80";
+      
+      createPreviewArea.innerHTML = `
+        <div class="card" style="position: relative; height: 320px; margin: 0 auto;">
+          <div class="card-inner">
+            <div class="card-photo" style="background-image: url(${photo})"></div>
+            <div class="card-info">
+              <div class="card-name-age">${name}, ${age}</div>
+              <div class="card-city">${city}</div>
+              <div class="card-bio">${bio}</div>
+            </div>
+          </div>
+        </div>
+        <button onclick="document.querySelector('.create-preview-area').setAttribute('aria-hidden', 'true')" style="margin-top: 12px; width: 100%; padding: 10px;">Закрыть предпросмотр</button>
+      `;
+      createPreviewArea.setAttribute('aria-hidden', 'false');
+    });
+
+    // Logo click handler
+    const logoRow = document.querySelector('.logo-row');
+    logoRow?.addEventListener('click', () => {
+      const url = prompt('Введите URL логотипа:', 'https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?w=800&q=80');
+      if (url) {
+        document.getElementById('logo-img').src = url;
+      }
+    });
+
+    // Filter change handlers
+    if (cityFilter) {
+      cityFilter.addEventListener('change', loadProfiles);
+    }
+    
+    if (genderFilter) {
+      genderFilter.addEventListener('change', loadProfiles);
+    }
+
+    // Apply theme on load
+    function applyTheme() {
+      if (darkMode) {
+        document.documentElement.classList.add('dark');
+        if (themeToggle) themeToggle.textContent = '☀️';
+      } else {
+        document.documentElement.classList.remove('dark');
+        if (themeToggle) themeToggle.textContent = '🌙';
+      }
+    }
+    applyTheme();
+
+    // Theme toggle
+    if (themeToggle) {
+      themeToggle.addEventListener('click', () => {
+        darkMode = !darkMode;
+        localStorage.setItem('darkMode', darkMode ? '1' : '0');
+        applyTheme();
+      });
+    }
+
+    // Initialize app
+    document.addEventListener('DOMContentLoaded', () => {
+      updateAuthUI();
+      loadProfiles();
+      
+      // Load existing profile
+      const savedProfile = localStorage.getItem('myProfile');
+      if (savedProfile) {
+        myProfile = JSON.parse(savedProfile);
+        // Add user profile to beginning of profiles if it doesn't exist
+        if (!profiles.some(p => p.id === myProfile.id)) {
+          profiles.unshift(myProfile);
+        }
+      }
+    });
+  </script>
+</body>
+</html>
