@@ -9,10 +9,23 @@ class UserRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
+    async def add(self, email: str, password: str, role_id: int = 1, is_active: bool = True) -> UserModel:
+        """Новый пользователь"""
+        user = UserModel(
+            email=email,
+            password=password,
+            is_active=is_active,
+            role_id=role_id
+        )
+        self.session.add(user)
+        await self.session.commit()
+        await self.session.refresh(user)
+        return user
+
     async def create(self, user_data: UserCreate) -> UserModel:
         user = UserModel(
             email=user_data.email,
-            hashed_password=user_data.password,
+            password=user_data.password,
             is_active=user_data.is_active,
             role_id=user_data.role_id
         )
@@ -39,12 +52,7 @@ class UserRepository:
         )
         return result.scalars().all()
 
-    async def update(self, user_id: int, user_data: UserUpdate, hashed_password: Optional[str] = None) -> Optional[UserModel]:
-        update_data = user_data.dict(exclude_unset=True, exclude={"password"})
-        
-        if hashed_password:
-            update_data["hashed_password"] = hashed_password
-        
+    async def update(self, user_id: int, update_data: Dict[str, Any]) -> Optional[UserModel]:
         stmt = (
             update(UserModel)
             .where(UserModel.id == user_id)
@@ -106,12 +114,12 @@ class UserRepository:
 
         # Активные пользователи
         active_result = await self.session.execute(
-            select(func.count()).where(UserModel.is_active == True)
+            select(func.count()).select_from(UserModel).where(UserModel.is_active == True)
         )
         active_users = active_result.scalar()
 
         # Неактивные пользователи
-        inactive_users = total_users - active_users
+        inactive_users = (total_users or 0) - (active_users or 0)
 
         # Пользователи по ролям
         role_result = await self.session.execute(
@@ -134,7 +142,7 @@ class UserRepository:
         stmt = (
             update(UserModel)
             .where(UserModel.id == user_id)
-            .values(hashed_password=hashed_password)
+            .values(password=hashed_password)
             .returning(UserModel)
         )
         result = await self.session.execute(stmt)
