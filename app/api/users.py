@@ -1,7 +1,10 @@
 # app/api/users.py
 from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
+from jose import JWTError, jwt
+from app.config import settings
 
 from app.database.database import get_db
 from app.schemas.users import (
@@ -21,6 +24,35 @@ from app.exceptions.users import (
 )
 
 router = APIRouter(prefix="/users", tags=["users"])
+
+# OAuth2 схема
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+
+# ✅ ФУНКЦИЯ для получения ID из токена
+async def get_current_user_id(token: str = Depends(oauth2_scheme)) -> int:
+    """
+    Извлечь ID пользователя из JWT токена
+    """
+    try:
+        payload = jwt.decode(
+            token, 
+            settings.SECRET_KEY, 
+            algorithms=[settings.ALGORITHM]
+        )
+        user_id: int = payload.get("sub")
+        if user_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        return int(user_id)
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
@@ -57,6 +89,31 @@ async def login_user(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Неверный email или пароль"
+        )
+
+
+# ✅ НОВОЕ - получение текущего пользователя
+@router.get("/me", response_model=UserResponse)
+async def get_current_user(
+    current_user_id: int = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Получение информации о текущем пользователе
+    Требует JWT токена в Authorization заголовке
+    """
+    service = UserService(db)
+    try:
+        return await service.get_user(current_user_id, include_role=False)
+    except UserNotFoundException as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Error getting user: {str(e)}"
         )
 
 
