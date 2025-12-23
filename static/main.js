@@ -74,15 +74,22 @@ async function apiRequest(endpoint, options = {}) {
     });
     
     if (response.status === 401) {
-      // ✅ ИСПРАВЛЕНО - детальная ошибка
-      console.error('401 Unauthorized for endpoint:', endpoint);
-      console.error('Token:', authToken ? authToken.substring(0, 20) + '...' : 'No token');
+      // ✅ МОННато - правильная обработка 401
+      console.error('✅ 401 Unauthorized for endpoint:', endpoint);
+      console.error('Token preview:', authToken ? authToken.substring(0, 20) + '...' : 'No token');
       
       // Unauthorized - clear token and show auth
       authToken = null;
       currentUser = null;
       localStorage.removeItem('authToken');
       updateAuthUI();
+      updateAuthButtonDisplay();
+      updateUserStatusDisplay();
+      
+      // Показываю ошибку пользователю
+      showNotification('Сессия истекла. Пожалуйста, войдите снова');
+      authPanel.setAttribute('aria-hidden', 'false');
+      
       throw new Error('Токен не активен или истек');
     }
     
@@ -837,7 +844,7 @@ async function renderLikedList() {
     });
   } catch (error) {
     console.error('Error rendering liked list:', error);
-    likedList.innerHTML = '<div class="empty-text">Ошибка загрузки</div>';
+    likedList.innerHTML = '<div class="empty-text">Ошибка загружки</div>';
   }
 }
 
@@ -918,7 +925,7 @@ async function renderWhoLikedList() {
     });
   } catch (error) {
     console.error('Error rendering who liked list:', error);
-    whoLikedList.innerHTML = '<div class="empty-text">Ошибка загрузки</div>';
+    whoLikedList.innerHTML = '<div class="empty-text">Ошибка загружки</div>';
   }
 }
 
