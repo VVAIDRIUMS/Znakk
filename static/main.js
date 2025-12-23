@@ -18,13 +18,17 @@ const createBtn = document.getElementById('create-btn');
 const createPanel = document.querySelector('.create-panel');
 const createClose = document.querySelector('.create-close');
 const createSave = document.getElementById('create-save');
+const createPreview = document.getElementById('create-preview');
 const authBtn = document.getElementById('auth-btn');
 const authBtnText = document.getElementById('auth-btn-text');
 const likedPanel = document.querySelector('.liked-panel');
 const likedList = document.querySelector('.liked-list');
+const likedBackBtn = document.querySelector('.back-btn');
 const whoLikedPanel = document.querySelector('.who-liked-panel');
 const whoLikedList = document.querySelector('.who-liked-list');
+const whoLikedBackBtn = document.querySelector('.who-back-btn');
 const whoLikedBtn = document.getElementById('who-liked-btn');
+const savedBtn = document.getElementById('saved-btn');
 const cityFilter = document.getElementById('city-filter');
 const genderFilter = document.getElementById('gender-filter');
 const likeBtn = document.getElementById('like-btn');
@@ -36,9 +40,6 @@ const profileViewLikeBtn = document.getElementById('profile-view-like-btn');
 const profileViewUnlikeBtn = document.getElementById('profile-view-unlike-btn');
 const authPanel = document.querySelector('.auth-panel');
 const authClose = document.querySelector('.auth-close');
-const userStatus = document.getElementById('user-status');
-const userStatusEmail = document.getElementById('user-status-email');
-const logoutHeaderBtn = document.getElementById('logout-header-btn');
 
 // ✅ НОВОЕ: Функция для безопасного API запроса
 async function apiRequest(endpoint, options = {}) {
@@ -184,17 +185,6 @@ function updateAuthButtonDisplay() {
   } else if (authBtn && authBtnText) {
     authBtnText.textContent = '';
     authBtn.style.width = '40px';
-  }
-}
-
-function updateUserStatusDisplay() {
-  if (currentUser && userStatus && userStatusEmail && logoutHeaderBtn) {
-    userStatusEmail.textContent = currentUser.email;
-    userStatus.style.display = 'flex';
-    if (authBtn) authBtn.style.display = 'none';
-  } else if (userStatus && authBtn) {
-    userStatus.style.display = 'none';
-    if (authBtn) authBtn.style.display = 'flex';
   }
 }
 
@@ -446,7 +436,7 @@ function skipCurrentProfile() {
   if (currentIndex < profiles.length) {
     const profile = profiles[currentIndex];
     viewedProfiles.push(profile.id);
-    showNotification(`⏭️ Вы пропустили ${profile.username}`);
+    showNotification(`✕ Вы пропустили ${profile.username}`);
     nextCard();
   }
 }
@@ -465,6 +455,9 @@ function viewProfile(profile) {
   document.getElementById('profile-view-age').textContent = `${profile.age} лет`;
   document.getElementById('profile-view-city').textContent = profile.city || 'Не указан';
   document.getElementById('profile-view-bio').textContent = profile.description || 'Не указано';
+  document.getElementById('profile-view-gender').textContent = profile.gender === 'male' ? 'Мужчина' : 'Женщина';
+  document.getElementById('profile-view-contact').textContent = profile.contact || 'Не указано';
+  document.getElementById('profile-view-tags').textContent = profile.tags || 'Нет';
   
   // Проверяем лайк
   checkIfLiked(profile.id).then(isLiked => {
@@ -484,12 +477,12 @@ function viewProfile(profile) {
 // EVENT LISTENERS
 // ============================================
 
-// Кнопки управления
+// ✅ ИСПРАВЛЕНО: Кнопки управления
 likeBtn?.addEventListener('click', likeCurrentProfile);
 skipBtn?.addEventListener('click', skipCurrentProfile);
 refreshBtn?.addEventListener('click', refreshProfiles);
 
-// Создание профиля
+// ✅ ИСПРАВЛЕНО: Создание профиля
 createBtn?.addEventListener('click', () => {
   if (!currentUser) {
     showNotification('❌ Для создания анкеты нужно войти в аккаунт');
@@ -503,7 +496,8 @@ createClose?.addEventListener('click', () => {
   createPanel?.setAttribute('aria-hidden', 'true');
 });
 
-createeSave?.addEventListener('click', async () => {
+// ✅ ИСПРАВЛЕНО: Сохранение профиля (было createeSave, теперь createSave)
+createSave?.addEventListener('click', async () => {
   if (!currentUser) {
     showNotification('❌ Пожалуйста авторизуйтесь');
     return;
@@ -546,8 +540,7 @@ createeSave?.addEventListener('click', async () => {
   }
 });
 
-// Лайки
-const savedBtn = document.getElementById('saved-btn');
+// ✅ ИСПРАВЛЕНО: Кнопка лайков (мои лайки)
 savedBtn?.addEventListener('click', async () => {
   if (!currentUser) {
     showNotification('❌ Пожалуйста авторизуйтесь');
@@ -582,6 +575,12 @@ savedBtn?.addEventListener('click', async () => {
   likedPanel?.setAttribute('aria-hidden', 'false');
 });
 
+// ✅ ИСПРАВЛЕНО: Кнопка возврата из лайков
+likedBackBtn?.addEventListener('click', () => {
+  likedPanel?.setAttribute('aria-hidden', 'true');
+});
+
+// ✅ ИСПРАВЛЕНО: Кнопка "Кто лайкнул меня"
 whoLikedBtn?.addEventListener('click', async () => {
   if (!currentUser) {
     showNotification('❌ Пожалуйста авторизуйтесь');
@@ -616,7 +615,12 @@ whoLikedBtn?.addEventListener('click', async () => {
   whoLikedPanel?.setAttribute('aria-hidden', 'false');
 });
 
-// Просмотр профиля
+// ✅ ИСПРАВЛЕНО: Кнопка возврата из "Кто лайкнул"
+whoLikedBackBtn?.addEventListener('click', () => {
+  whoLikedPanel?.setAttribute('aria-hidden', 'true');
+});
+
+// ✅ ИСПРАВЛЕНО: Просмотр профиля
 profileViewClose?.addEventListener('click', () => {
   profileViewPanel.setAttribute('aria-hidden', 'true');
 });
@@ -635,7 +639,7 @@ profileViewUnlikeBtn?.addEventListener('click', async () => {
   }
 });
 
-// Аутентификация
+// ✅ ИСПРАВЛЕНО: Аутентификация
 document.getElementById('login-tab')?.addEventListener('click', () => {
   document.getElementById('login-tab').classList.add('active');
   document.getElementById('register-tab').classList.remove('active');
@@ -663,7 +667,6 @@ document.getElementById('login-btn')?.addEventListener('click', async () => {
     await loginUser(email, password);
     updateAuthUI();
     updateAuthButtonDisplay();
-    updateUserStatusDisplay();
     showAuthMessage('✅ Вход успешен!', 'success');
     setTimeout(() => {
       authPanel.setAttribute('aria-hidden', 'true');
@@ -693,7 +696,6 @@ document.getElementById('register-btn')?.addEventListener('click', async () => {
     await registerUser(email, password);
     updateAuthUI();
     updateAuthButtonDisplay();
-    updateUserStatusDisplay();
     showAuthMessage('✅ Регистрация успешна!', 'success');
     setTimeout(() => {
       authPanel.setAttribute('aria-hidden', 'true');
@@ -708,21 +710,11 @@ document.getElementById('logout-btn')?.addEventListener('click', () => {
   logoutUser();
   updateAuthUI();
   updateAuthButtonDisplay();
-  updateUserStatusDisplay();
   showAuthMessage('✅ Вы вышли из аккаунта', 'success');
   setTimeout(() => {
     authPanel.setAttribute('aria-hidden', 'true');
     loadProfiles();
   }, 1000);
-});
-
-logoutHeaderBtn?.addEventListener('click', () => {
-  logoutUser();
-  updateAuthUI();
-  updateAuthButtonDisplay();
-  updateUserStatusDisplay();
-  showNotification('✅ Вы вышли');
-  loadProfiles();
 });
 
 authBtn?.addEventListener('click', () => {
@@ -775,6 +767,5 @@ window.addEventListener('DOMContentLoaded', async () => {
   
   updateAuthUI();
   updateAuthButtonDisplay();
-  updateUserStatusDisplay();
   await loadProfiles();
 });
