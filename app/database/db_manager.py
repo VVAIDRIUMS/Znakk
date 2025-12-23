@@ -1,6 +1,6 @@
 from app.database.database import async_session_maker
-from app.repositories.roles import RolesRepository
-from app.repositories.users import UsersRepository
+from app.repositories.roles import RoleRepository
+from app.repositories.users import UserRepository
 
 
 class DBManager:
@@ -11,8 +11,8 @@ class DBManager:
         self.session = self.session_factory()
         # TODO Добавить сюда созданные репозитории
         # Пример:
-        self.users = UsersRepository(self.session)
-        self.roles = RolesRepository(self.session)
+        self.users = UserRepository(self.session)
+        self.roles = RoleRepository(self.session)
         return self
 
     async def __aexit__(self, *args):
