@@ -4,16 +4,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.database.database import get_db
-from app.database.models import Like, Profile, User
+from app.models.likes import Like
+from app.models.profiles import Profile
+from app.models.users import User
 from app.schemas.likes import LikeCreate, LikeResponse
 from app.schemas.profiles import ProfileResponse
 from app.api.dependencies import get_current_user_id
-from app.exceptions import LikeNotFoundException
 
 router = APIRouter(prefix="/likes", tags=["likes"])
 
 
-# ✅ НОВОЕ: Поставить лайк
+# ✅ НОВОЕ: Добавить лайк
 @router.post("/add", response_model=dict, status_code=status.HTTP_200_OK)
 async def add_like(
     like_data: LikeCreate,
@@ -26,7 +27,7 @@ async def add_like(
     - **liked_profile_id**: ID профиля, который лайкнуть
     """
     try:
-        # Проверим что пользователь имеет профиль
+        # Проверяем что у пользователя есть профиль
         user_profile_stmt = select(Profile).where(Profile.user_id == current_user_id)
         user_profile = await db.scalar(user_profile_stmt)
         
@@ -43,7 +44,7 @@ async def add_like(
                 "message": "Нельзя лайкнуть свой профиль"
             }
         
-        # Проверим что профиль существует
+        # Проверяем что профиль существует
         liked_profile_stmt = select(Profile).where(Profile.id == like_data.liked_profile_id)
         liked_profile = await db.scalar(liked_profile_stmt)
         
@@ -53,7 +54,7 @@ async def add_like(
                 "message": "Профиль не найден"
             }
         
-        # Проверим нет ли уже лайка
+        # Проверяем нет ли уже лайка
         existing_like_stmt = select(Like).where(
             Like.user_id == current_user_id,
             Like.liked_profile_id == like_data.liked_profile_id
@@ -139,9 +140,10 @@ async def get_my_likes(
         # Находим все лайки текущего пользователя
         stmt = select(Like).where(Like.user_id == current_user_id)
         likes = await db.scalars(stmt)
+        likes_list = list(likes)
         
         profiles = []
-        for like in likes:
+        for like in likes_list:
             # Находим профиль который лайкнули
             profile_stmt = select(Profile).where(Profile.id == like.liked_profile_id)
             profile = await db.scalar(profile_stmt)
@@ -150,17 +152,18 @@ async def get_my_likes(
         
         return profiles
     except Exception as e:
+        print(f"Error in get_my_likes: {e}")
         return []
 
 
-# ✅ НОВОЕ: Получить ко мне лайкнули
+# ✅ НОВОЕ: Получить профили которые лайкнули МЕНЯ
 @router.get("/who-liked-me", response_model=List[ProfileResponse])
 async def get_who_liked_me(
     current_user_id: int = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Получить профили которые лайкнули МЕНЯ
+    Получить профили которые лайкнули мой профиль
     """
     try:
         # Находим профиль текущего пользователя
@@ -173,9 +176,10 @@ async def get_who_liked_me(
         # Находим все лайки которые получил мой профиль
         stmt = select(Like).where(Like.liked_profile_id == my_profile.id)
         likes = await db.scalars(stmt)
+        likes_list = list(likes)
         
         profiles = []
-        for like in likes:
+        for like in likes_list:
             # Находим профиль который лайкнул
             profile_stmt = select(Profile).where(Profile.user_id == like.user_id)
             profile = await db.scalar(profile_stmt)
@@ -184,6 +188,7 @@ async def get_who_liked_me(
         
         return profiles
     except Exception as e:
+        print(f"Error in get_who_liked_me: {e}")
         return []
 
 
@@ -195,7 +200,7 @@ async def check_like(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Проверить был ли лайк на специфичный профиль
+    Проверить был ли лайк на спецификичный профиль
     """
     try:
         stmt = select(Like).where(
@@ -211,27 +216,3 @@ async def check_like(
         return {
             "liked": False
         }
-
-
-# ✅ НОВОЕ: Неавторизованные запросы - просим на регистрацию
-
-@router.get("/my-likes", response_model=dict)
-async def get_my_likes_unauthorized():
-    """
-    Получить лайки с авторизацией (fallback)
-    """
-    return {
-        "success": False,
-        "message": "Пожалуйста авторизуйтесь”
-    }
-
-
-@router.get("/who-liked-me", response_model=dict)
-async def get_who_liked_me_unauthorized():
-    """
-    Получить ко мне с авторизацией (fallback)
-    """
-    return {
-        "success": False,
-        "message": "Пожалуйста авторизуйтесь"
-    }
