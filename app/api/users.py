@@ -4,7 +4,7 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
 from jose import JWTError, jwt
-from app.config import settings
+from app.config import settings  # ✅ НОВОЕ - импортировать settings
 
 from app.database.database import get_db
 from app.schemas.users import (
@@ -34,6 +34,7 @@ async def get_current_user_id(token: str = Depends(oauth2_scheme)) -> int:
     Извлечь ID пользователя из JWT токена
     """
     try:
+        # ✅ ИСПРАВЛЕНО - использовать settings.SECRET_KEY
         payload = jwt.decode(
             token, 
             settings.SECRET_KEY, 
@@ -47,7 +48,8 @@ async def get_current_user_id(token: str = Depends(oauth2_scheme)) -> int:
                 headers={"WWW-Authenticate": "Bearer"},
             )
         return int(user_id)
-    except JWTError:
+    except JWTError as e:
+        print(f"JWT validation error: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authentication credentials",
@@ -104,6 +106,7 @@ async def get_current_user(
     """
     service = UserService(db)
     try:
+        print(f"Getting user {current_user_id}")
         return await service.get_user(current_user_id, include_role=False)
     except UserNotFoundException as e:
         raise HTTPException(
@@ -111,6 +114,7 @@ async def get_current_user(
             detail=str(e)
         )
     except Exception as e:
+        print(f"Error getting user: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Error getting user: {str(e)}"
