@@ -70,12 +70,16 @@ async function apiRequest(endpoint, options = {}) {
     });
     
     if (response.status === 401) {
+      // ✅ ИСПРАВЛЕНО - детальная ошибка
+      console.error('401 Unauthorized for endpoint:', endpoint);
+      console.error('Token:', authToken ? authToken.substring(0, 20) + '...' : 'No token');
+      
       // Unauthorized - clear token and show auth
       authToken = null;
       currentUser = null;
       localStorage.removeItem('authToken');
       updateAuthUI();
-      throw new Error('Необходима авторизация');
+      throw new Error('Токен не активен или истек');
     }
     
     const data = await response.json();
@@ -97,29 +101,50 @@ async function loginUser(email, password) {
   formData.append('username', email);
   formData.append('password', password);
   
-  const response = await fetch(`${API_BASE}/auth/login`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded'
-    },
-    body: formData
-  });
-  
-  const data = await response.json();
-  
-  if (!response.ok) {
-    // ✅ ИСПРАВЛЕНО - правильно извлекаем сообщение об ошибке
-    const errorMessage = data.detail || data.message || 'Ошибка входа';
-    throw new Error(errorMessage);
+  try {
+    const response = await fetch(`${API_BASE}/auth/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: formData
+    });
+    
+    const data = await response.json();
+    
+    if (!response.ok) {
+      const errorMessage = data.detail || data.message || 'Ошибка входа';
+      throw new Error(errorMessage);
+    }
+    
+    // ✅ Отработано токена
+    authToken = data.access_token;
+    console.log('✅ Token received and saved');
+    console.log('Token preview:', authToken.substring(0, 20) + '...');
+    localStorage.setItem('authToken', authToken);
+    
+    // ✅ НОВОЕ - заполним основные данные из токена
+    currentUser = {
+      id: data.user_id,
+      email: email,
+      role_id: data.role_id
+    };
+    
+    // Попытаюсь понять полные данные
+    try {
+      const fullUser = await apiRequest('/users/me');
+      currentUser = fullUser;
+      console.log('✅ User data loaded from /users/me');
+    } catch (userError) {
+      console.warn('⚠️  Could not load full user data:', userError);
+      // Мы все равно вошли!
+    }
+    
+    return currentUser;
+  } catch (error) {
+    console.error('Login error:', error);
+    throw error;
   }
-  
-  authToken = data.access_token;
-  localStorage.setItem('authToken', authToken);
-  
-  // Get user info
-  currentUser = await apiRequest('/users/me');
-  
-  return currentUser;
 }
 
 async function registerUser(email, password) {
@@ -232,7 +257,7 @@ async function loadProfiles() {
     renderCard();
   } catch (error) {
     console.error('Error loading profiles:', error);
-    showNotification('Ошибка загрузки профилей');
+    showNotification('Ошибка загружки профилей');
   }
 }
 
@@ -253,7 +278,7 @@ function renderCard() {
   const card = document.createElement('div');
   card.className = 'card';
   
-  const genderEmoji = profile.gender === 'male' ? '👨' : profile.gender === 'female' ? '👩' : '';
+  const genderEmoji = profile.gender === 'male' ? '🚮' : profile.gender === 'female' ? '🚮' : '';
   
   card.innerHTML = `
     <div class="card-inner">
@@ -536,7 +561,6 @@ document.getElementById('login-btn').addEventListener('click', async () => {
       loadProfiles();
     }, 1000);
   } catch (error) {
-    // ✅ ИСПРАВЛЕНО - правильно преобразуем ошибку в строку
     const errorMessage = getErrorMessage(error);
     showAuthMessage(errorMessage, 'error');
   }
@@ -572,7 +596,6 @@ document.getElementById('register-btn').addEventListener('click', async () => {
       loadProfiles();
     }, 1000);
   } catch (error) {
-    // ✅ ИСПРАВЛЕНО - правильно преобразуем ошибку в строку
     const errorMessage = getErrorMessage(error);
     showAuthMessage(errorMessage, 'error');
   }
@@ -602,7 +625,7 @@ function updateAuthUI() {
     document.getElementById('logout-form').style.display = 'block';
     document.getElementById('login-tab').style.display = 'none';
     document.getElementById('register-tab').style.display = 'none';
-    authBtn.textContent = '👤 ' + currentUser.email.split('@')[0];
+    authBtn.textContent = '🚫 ' + currentUser.email.split('@')[0];
   } else {
     document.getElementById('login-form').style.display = 'block';
     document.getElementById('register-form').style.display = 'none';
@@ -611,7 +634,7 @@ function updateAuthUI() {
     document.getElementById('register-tab').style.display = 'block';
     document.getElementById('login-tab').classList.add('active');
     document.getElementById('register-tab').classList.remove('active');
-    authBtn.textContent = '👤';
+    authBtn.textContent = '🚫';
     
     // Clear form fields
     document.getElementById('login-email').value = '';
@@ -680,7 +703,6 @@ if (createSave) {
       // Reload profiles
       loadProfiles();
     } catch (error) {
-      // ✅ ИСПРАВЛЕНО - правильно преобразуем ошибку в строку
       const errorMessage = getErrorMessage(error);
       alert('Ошибка создания профиля: ' + errorMessage);
     }
@@ -727,7 +749,7 @@ async function renderLikedList() {
     likedProfiles.forEach(profile => {
       const item = document.createElement('div');
       item.className = 'liked-item';
-      const genderEmoji = profile.gender === 'male' ? '👨' : profile.gender === 'female' ? '👩' : '';
+      const genderEmoji = profile.gender === 'male' ? '🚮' : profile.gender === 'female' ? '🚮' : '';
       item.innerHTML = `
         <div class="profile-photo-small" style="background-image: url(${profile.photo_url || 'https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?w=800&q=80'})"></div>
         <div class="profile-info">
@@ -770,7 +792,7 @@ async function renderLikedList() {
     });
   } catch (error) {
     console.error('Error rendering liked list:', error);
-    likedList.innerHTML = '<div class="empty-text">Ошибка загрузки</div>';
+    likedList.innerHTML = '<div class="empty-text">Ошибка загружки</div>';
   }
 }
 
@@ -792,7 +814,7 @@ async function renderWhoLikedList() {
       const isLikedBack = likedProfiles.some(p => p.id === profile.id);
       const item = document.createElement('div');
       item.className = 'who-liked-item';
-      const genderEmoji = profile.gender === 'male' ? '👨' : profile.gender === 'female' ? '👩' : '';
+      const genderEmoji = profile.gender === 'male' ? '🚮' : profile.gender === 'female' ? '🚮' : '';
       item.innerHTML = `
         <div class="profile-photo-small" style="background-image: url(${profile.photo_url || 'https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?w=800&q=80'})"></div>
         <div class="profile-info">
@@ -851,7 +873,7 @@ async function renderWhoLikedList() {
     });
   } catch (error) {
     console.error('Error rendering who liked list:', error);
-    whoLikedList.innerHTML = '<div class="empty-text">Ошибка загрузки</div>';
+    whoLikedList.innerHTML = '<div class="empty-text">Ошибка загружки</div>';
   }
 }
 
@@ -929,7 +951,7 @@ if (profileViewUnlikeBtn) {
 const createPreview = document.getElementById('create-preview');
 const createPreviewArea = document.querySelector('.create-preview-area');
 
-createPreview?.addEventListener('click', () => {
+createPrevie?.addEventListener('click', () => {
   const name = document.getElementById('create-name').value || "Имя";
   const age = document.getElementById('create-age').value || "Возраст";
   const gender = document.getElementById('create-gender').value;
@@ -937,7 +959,7 @@ createPreview?.addEventListener('click', () => {
   const bio = document.getElementById('create-bio').value || "О себе";
   const photo = document.getElementById('create-photo').value || "https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?w=800&q=80";
   
-  const genderEmoji = gender === 'male' ? '👨' : gender === 'female' ? '👩' : '';
+  const genderEmoji = gender === 'male' ? '🚮' : gender === 'female' ? '🚮' : '';
   
   createPreviewArea.innerHTML = `
     <div class="card" style="position: relative; height: 320px; margin: 0 auto;">
@@ -999,9 +1021,12 @@ window.addEventListener('DOMContentLoaded', async () => {
   // Check if user is logged in
   if (authToken) {
     try {
+      console.log('🔍 Checking if user is still logged in...');
+      console.log('Token preview:', authToken.substring(0, 20) + '...');
       currentUser = await apiRequest('/users/me');
+      console.log('✅ User is logged in:', currentUser.email);
     } catch (error) {
-      console.error('Error fetching user:', error);
+      console.error('⚠️  Error fetching user:', error);
       authToken = null;
       currentUser = null;
       localStorage.removeItem('authToken');
