@@ -15,8 +15,9 @@ class UserAlreadyExistsException(Exception):
 
 
 class InvalidCredentialsException(Exception):
-    def __init__(self):
-        super().__init__("Incorrect email or password")
+    def __init__(self, message: str = "Incorrect email or password"):
+        super().__init__(message)
+        self.message = message
 
 
 class InvalidPasswordException(Exception):
