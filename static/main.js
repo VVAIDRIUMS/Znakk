@@ -41,6 +41,26 @@ const profileViewUnlikeBtn = document.getElementById('profile-view-unlike-btn');
 const authPanel = document.querySelector('.auth-panel');
 const authClose = document.querySelector('.auth-close');
 
+// ✅ УЛУЧШЕННАЯ функция для безопасного парсинга ответа
+async function parseResponse(response) {
+  try {
+    // ✅ Читаем тело один раз как текст
+    const text = await response.text();
+    
+    // ✅ Пытаемся распарсить как JSON
+    try {
+      return JSON.parse(text);
+    } catch (jsonError) {
+      // ✅ Не JSON - возвращаем объект с текстом
+      console.error('❌ Не JSON ответ:', text.substring(0, 100));
+      return { detail: `Ошибка сервера: ${response.statusText}` };
+    }
+  } catch (error) {
+    console.error('❌ Ошибка чтения ответа:', error);
+    return { detail: 'Не удалось прочитать ответ сервера' };
+  }
+}
+
 // ✅ Функция для безопасного API запроса
 async function apiRequest(endpoint, options = {}) {
   const headers = {
@@ -69,17 +89,8 @@ async function apiRequest(endpoint, options = {}) {
   try {
     const response = await fetch(`${API_BASE}${endpoint}`, requestOptions);
     
-    // ✅ Улучшенная обработка ошибок
-    let data = null;
-    try {
-      data = await response.json();
-    } catch (jsonError) {
-      console.error('❌ Ошибка парсинга JSON:', jsonError);
-      // Не JSON ответ - например HTML ошибка
-      const responseText = await response.text();
-      console.error('Ответ сервера:', responseText);
-      data = { detail: `Ошибка сервера: ${response.statusText}` };
-    }
+    // ✅ Используем улучшенный парсинг
+    const data = await parseResponse(response);
     
     if (response.status === 401) {
       console.error('❌ 401 Unauthorized - Токен невалидный или истек');
@@ -126,7 +137,7 @@ async function loginUser(email, password) {
       credentials: 'include'
     });
     
-    const data = await response.json();
+    const data = await parseResponse(response);
     
     if (!response.ok) {
       throw new Error(data.detail || 'Ошибка входа');
@@ -159,7 +170,7 @@ async function registerUser(email, password) {
       credentials: 'include'
     });
     
-    const data = await response.json();
+    const data = await parseResponse(response);
     
     if (!response.ok) {
       throw new Error(data.detail || 'Ошибка регистрации');
@@ -259,19 +270,11 @@ async function createProfile(profileData) {
       credentials: 'include'
     });
     
-    console.log(`🔏 Ответ: status=${response.status}`);
+    console.log(`🔍 Ответ: status=${response.status}`);
     
-    // ✅ Улучшенная обработка ответа
-    let data = null;
-    try {
-      data = await response.json();
-      console.log('🔏 Ответ JSON:', data);
-    } catch (jsonError) {
-      console.error('❌ JSON парсинг ошибка:', jsonError);
-      const responseText = await response.text();
-      console.error('Ответ текст:', responseText);
-      throw new Error(`Ошибка сервера: Получен невалидный ответ`);
-    }
+    // ✅ Используем улучшенный парсинг
+    const data = await parseResponse(response);
+    console.log('🔍 Ответ JSON:', data);
     
     if (!response.ok) {
       console.error(`❌ Ошибка ${response.status}:`, data);
@@ -349,7 +352,7 @@ async function getMyLikes() {
     return await apiRequest('/likes/my-likes');
   } catch (error) {
     console.error('❌ Error getting my likes:', error);
-    showNotification('❌ Ошибка загружки лайков');
+    showNotification('❌ Ошибка загрузки лайков');
     return [];
   }
 }
@@ -364,7 +367,7 @@ async function getWhoLikedMe() {
     return await apiRequest('/likes/who-liked-me');
   } catch (error) {
     console.error('❌ Error getting who liked me:', error);
-    showNotification('❌ Ошибка загружки лайков');
+    showNotification('❌ Ошибка загрузки лайков');
     return [];
   }
 }
@@ -438,7 +441,7 @@ async function loadProfiles() {
     renderCard();
   } catch (error) {
     console.error('❌ Error loading profiles:', error);
-    showNotification('❌ Ошибка загружки профилей');
+    showNotification('❌ Ошибка загрузки профилей');
   }
 }
 
@@ -622,7 +625,7 @@ savedBtn?.addEventListener('click', async () => {
           <div class="profile-city">📍 ${profile.city}</div>
         </div>
         <div class="item-actions">
-          <button class="item-action-btn view-btn" onclick="viewProfile(${JSON.stringify(profile).replace(/"/g, '&quot;')})" title="Посмотреть">👁</button>
+          <button class="item-action-btn view-btn" onclick="viewProfile(${JSON.stringify(profile).replace(/"/g, '&quot;')})" title="Посмотреть">👁️</button>
           <button class="item-action-btn unlike-btn" onclick="unlikeProfile(${JSON.stringify(profile).replace(/"/g, '&quot;')})" title="Убрать лайк">✕</button>
         </div>
       `;
@@ -660,7 +663,7 @@ whoLikedBtn?.addEventListener('click', async () => {
           <div class="profile-city">📍 ${profile.city}</div>
         </div>
         <div class="item-actions">
-          <button class="item-action-btn view-btn" onclick="viewProfile(${JSON.stringify(profile).replace(/"/g, '&quot;')})" title="Посмотреть">👁</button>
+          <button class="item-action-btn view-btn" onclick="viewProfile(${JSON.stringify(profile).replace(/"/g, '&quot;')})" title="Посмотреть">👁️</button>
           <button class="item-action-btn like-btn" onclick="likeProfile(${JSON.stringify(profile).replace(/"/g, '&quot;')})" title="Лайкнуть">❤️</button>
         </div>
       `;
