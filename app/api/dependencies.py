@@ -2,6 +2,7 @@ from typing import Annotated
 
 from fastapi import Depends, Request
 from pydantic import BaseModel, Field
+import jwt
 
 from app.database.database import async_session_maker
 from app.exceptions.auth import (
@@ -9,7 +10,7 @@ from app.exceptions.auth import (
     InvalidTokenHTTPError,
     NoAccessTokenHTTPError,
 )
-from app.services.auth import AuthService
+from app.config import settings
 from app.database.db_manager import DBManager
 from app.schemas.users import UserResponse
 
@@ -58,27 +59,49 @@ def get_token(request: Request) -> str:
     return token
 
 
+# ✅ ИСПРАВЛЕНО: Валидация токена - ПРЯМО В ЗАВИСИМОСТИ (не через AuthService)
+def validate_token_static(token: str) -> dict:
+    """
+    Валидация JWT токена без зависимостей от БД
+    Используется для быстрой проверки авторизации
+    """
+    try:
+        # ✅ Декодируем токен с помощью settings.SECRET_KEY
+        payload = jwt.decode(
+            token,
+            settings.SECRET_KEY,
+            algorithms=[settings.ALGORITHM]
+        )
+        user_id: str = payload.get("sub")
+        if user_id is None:
+            print("❌ ОШИБКА: user_id (sub) не найден в токене")
+            raise InvalidTokenHTTPError
+        
+        print(f"✅ Токен валидирован: user_id = {user_id}")
+        return {"user_id": int(user_id), "email": payload.get("email")}
+    except jwt.ExpiredSignatureError:
+        print("❌ ОШИБКА: Токен истек")
+        raise InvalidTokenHTTPError
+    except jwt.InvalidTokenError as e:
+        print(f"❌ ОШИБКА: Невалидный токен: {str(e)}")
+        raise InvalidTokenHTTPError
+    except Exception as e:
+        print(f"❌ ОШИБКА при валидации токена: {type(e).__name__}: {str(e)}")
+        raise InvalidTokenHTTPError
+
+
 def get_current_user_id(token: str = Depends(get_token)) -> int:
     """
     Получить ID пользователя из токена
     Декодирует JWT и извлекает user_id
     
-    ✅ ИСПРАВЛЕНО: Использует validate_token() вместо decode_token()
+    ✅ ИСПРАВЛЕНО: Используется validate_token_static() вместо AuthService.validate_token()
     """
-    try:
-        # ✅ ФИКС: validate_token() - это правильный метод
-        data = AuthService.validate_token(token)
-        print(f"✅ Токен успешно декодирован: user_id = {data.get('user_id')}")
-    except InvalidJWTTokenError as e:
-        print(f"❌ ОШИБКА при декодировании токена: {e}")
-        raise InvalidTokenHTTPError
-    except Exception as e:
-        print(f"❌ ОШИБКА при валидации токена: {type(e).__name__}: {str(e)}")
-        raise InvalidTokenHTTPError
+    data = validate_token_static(token)
     
     user_id = data.get("user_id")
     if not user_id:
-        print("❌ ОШИБКА: user_id не найден в токене")
+        print("❌ ОШИБКА: user_id не найден в декодированном токене")
         print(f"📋 Содержимое токена: {data}")
         raise InvalidTokenHTTPError
     
