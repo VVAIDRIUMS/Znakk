@@ -1,13 +1,12 @@
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.schemas.likes import LikeCreate, LikeUpdate, LikeResponse
 from app.schemas.profiles import ProfileResponse
 from app.services.likes import LikeService
 from app.services.profiles import ProfileService
 from app.exceptions import LikeNotFoundException, LikeAlreadyExistsException
-from app.api.dependencies import get_current_user, DBDep
+from app.api.dependencies import get_current_user, get_db
 from app.schemas.users import UserResponse
 from app.database.db_manager import DBManager
 
@@ -28,7 +27,7 @@ async def create_like(
     """
     profile_service = ProfileService(db.session)
     
-    # ✅ Провераем что у пользователя есть профиль
+    # ✅ Проверяем что у пользователя есть профиль
     user_profile = await profile_service.get_profile_by_user_id(current_user.id)
     if not user_profile:
         raise HTTPException(
