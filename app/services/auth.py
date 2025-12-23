@@ -89,16 +89,7 @@ class AuthService:
             
         # Создаем пользователя
         
-        user = await self. user_data.password        
-        return UserResponse(
-            id=user.id,
-            email=user.email,
-            is_active=user.is_active,
-            role_id=user.role_id,
-            created_at=datetime.now()
-        )
-
-    async def change_password(self, user_id: int, password_data: PasswordChange) -> dict:
+            created_at=datetime.now()            role_id=user_data.role_id
         """Смена пароля пользователя"""
         # Получаем пользователя
         user = await self.user_repository.get_by_id(user_id)
