@@ -2,6 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import timedelta
+from jose import JWTError, jwt
+from app.config import settings
 
 from app.database.database import get_db
 from app.schemas.users import (
@@ -22,7 +24,33 @@ from app.exceptions.users import (
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 # OAuth2 схема для токенов
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+
+# ✅ НОВАЯ ФУНКЦИЯ - получение ID пользователя из токена
+async def get_current_user_id(token: str = Depends(oauth2_scheme)) -> int:
+    """
+    Извлечь ID пользователя из JWT токена
+    """
+    try:
+        payload = jwt.decode(
+            token, 
+            settings.SECRET_KEY, 
+            algorithms=[settings.ALGORITHM]
+        )
+        user_id: int = payload.get("sub")
+        if user_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        return int(user_id)
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
@@ -114,7 +142,7 @@ async def login_user_json(
 
 @router.post("/refresh-token", response_model=Token)
 async def refresh_token(
-    current_user_id: int = Depends(lambda: 1),  # Заглушка - в реальном приложении брать из токена
+    current_user_id: int = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -138,7 +166,7 @@ async def refresh_token(
 @router.post("/change-password")
 async def change_password(
     password_data: PasswordChange,
-    current_user_id: int = Depends(lambda: 1),  # Заглушка
+    current_user_id: int = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -164,13 +192,15 @@ async def change_password(
         )
 
 
+# ✅ ОСНОВНОЙ ЭНДПОИНТ - получение текущего пользователя
 @router.get("/me", response_model=UserResponse)
 async def get_current_user(
-    current_user_id: int = Depends(lambda: 1),  # Заглушка
+    current_user_id: int = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Получение информации о текущем пользователе
+    Требует JWT токена в Authorization заголовке
     """
     service = AuthService(db)
     try:
