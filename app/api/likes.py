@@ -1,14 +1,15 @@
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.database.database import get_db
+
 from app.schemas.likes import LikeCreate, LikeUpdate, LikeResponse
 from app.schemas.profiles import ProfileResponse
 from app.services.likes import LikeService
 from app.services.profiles import ProfileService
 from app.exceptions import LikeNotFoundException, LikeAlreadyExistsException
-from app.api.dependencies import get_current_user
+from app.api.dependencies import get_current_user, DBDep
 from app.schemas.users import UserResponse
+from app.database.db_manager import DBManager
 
 router = APIRouter(prefix="/likes", tags=["likes"])
 
@@ -18,14 +19,14 @@ router = APIRouter(prefix="/likes", tags=["likes"])
 async def create_like(
     like_data: LikeCreate,
     current_user: UserResponse = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db: DBManager = Depends(get_db)
 ):
     """
     Поставить лайк на профиль
     
     Можно только если у пользователя есть собственный профиль
     """
-    profile_service = ProfileService(db)
+    profile_service = ProfileService(db.session)
     
     # ✅ Провераем что у пользователя есть профиль
     user_profile = await profile_service.get_profile_by_user_id(current_user.id)
@@ -42,7 +43,7 @@ async def create_like(
             detail="Нельзя лайкнуть свой профиль"
         )
     
-    service = LikeService(db)
+    service = LikeService(db.session)
     try:
         return await service.create_like(like_data, current_user.id)
     except LikeAlreadyExistsException as e:
@@ -56,12 +57,12 @@ async def create_like(
 @router.get("/my-likes", response_model=List[ProfileResponse])
 async def get_my_likes(
     current_user: UserResponse = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db: DBManager = Depends(get_db)
 ):
     """
     Профили которым я поставил лайк
     """
-    service = LikeService(db)
+    service = LikeService(db.session)
     return await service.get_profiles_i_liked(current_user.id)
 
 
@@ -69,12 +70,12 @@ async def get_my_likes(
 @router.get("/who-liked-me", response_model=List[ProfileResponse])
 async def get_who_liked_me(
     current_user: UserResponse = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db: DBManager = Depends(get_db)
 ):
     """
     Профили которые лайкнули мой профиль
     """
-    profile_service = ProfileService(db)
+    profile_service = ProfileService(db.session)
     
     # Находим профиль пользователя
     my_profile = await profile_service.get_profile_by_user_id(current_user.id)
@@ -84,7 +85,7 @@ async def get_who_liked_me(
             detail="Профиль не найден"
         )
     
-    service = LikeService(db)
+    service = LikeService(db.session)
     return await service.get_profiles_that_liked_me(my_profile.id)
 
 
@@ -93,12 +94,12 @@ async def get_who_liked_me(
 async def delete_like(
     liked_profile_id: int,
     current_user: UserResponse = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db: DBManager = Depends(get_db)
 ):
     """
     Удалить лайк с профиля
     """
-    service = LikeService(db)
+    service = LikeService(db.session)
     try:
         return await service.delete_like(current_user.id, liked_profile_id)
     except LikeNotFoundException as e:
@@ -114,18 +115,18 @@ async def delete_like(
 async def get_all_likes(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
-    db: AsyncSession = Depends(get_db)
+    db: DBManager = Depends(get_db)
 ):
-    service = LikeService(db)
+    service = LikeService(db.session)
     return await service.get_all_likes(skip, limit)
 
 
 @router.get("/{like_id}", response_model=LikeResponse)
 async def get_like(
     like_id: int,
-    db: AsyncSession = Depends(get_db)
+    db: DBManager = Depends(get_db)
 ):
-    service = LikeService(db)
+    service = LikeService(db.session)
     try:
         return await service.get_like(like_id)
     except LikeNotFoundException as e:
@@ -138,9 +139,9 @@ async def get_like(
 @router.get("/profile/{profile_id}", response_model=LikeResponse)
 async def get_like_by_profile(
     profile_id: int,
-    db: AsyncSession = Depends(get_db)
+    db: DBManager = Depends(get_db)
 ):
-    service = LikeService(db)
+    service = LikeService(db.session)
     try:
         return await service.get_like_by_profile(profile_id)
     except LikeNotFoundException as e:
@@ -154,9 +155,9 @@ async def get_like_by_profile(
 async def update_like(
     like_id: int,
     like_data: LikeUpdate,
-    db: AsyncSession = Depends(get_db)
+    db: DBManager = Depends(get_db)
 ):
-    service = LikeService(db)
+    service = LikeService(db.session)
     try:
         return await service.update_like(like_id, like_data)
     except LikeNotFoundException as e:
@@ -169,7 +170,7 @@ async def update_like(
 @router.get("/role/{role_id}", response_model=List[LikeResponse])
 async def get_likes_by_role(
     role_id: int,
-    db: AsyncSession = Depends(get_db)
+    db: DBManager = Depends(get_db)
 ):
-    service = LikeService(db)
+    service = LikeService(db.session)
     return await service.get_likes_by_role(role_id)
