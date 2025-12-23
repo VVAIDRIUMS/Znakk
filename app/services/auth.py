@@ -1,5 +1,4 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from passlib.context import CryptContext
 from datetime import datetime, timedelta
 import jwt
 from typing import Optional
@@ -29,7 +28,6 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 # Контекст для хэширования паролей
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 class AuthService:
@@ -37,17 +35,17 @@ class AuthService:
         self.session = session
         self.user_repository = UserRepository(session)
 
-    def verify_password(self, plain_password: str, hashed_password: str) -> bool:
         """Проверка пароля"""
-        return pwd_context.verify(plain_password, hashed_password)
+            def verify_password(self, plain_password: str, password: str) -> bool:
+                        """Простое сравнение паролей"""
+                        return plain_password == password
 
-    def get_password_hash(self, password: str) -> str:
-        """Хэширование пароля"""
+        
+
         return pwd_context.hash(password)
 
     def create_access_token(self, data: dict, expires_delta: Optional[timedelta] = None) -> str:
         """Создание JWT токена"""
-        to_encode = data.copy()
         if expires_delta:
             expire = datetime.utcnow() + expires_delta
         else:
@@ -66,7 +64,7 @@ class AuthService:
             raise InvalidCredentialsException()
         
         # Проверяем пароль
-        if not self.verify_password(login_data.password, user.hashed_password):
+        if not self.verify_password(login_data.password, user.password):
             raise InvalidCredentialsException()
         
         # Проверяем активен ли пользователь
@@ -94,12 +92,10 @@ class AuthService:
             raise UserAlreadyExistsException(user_data.email)
         
         # Хэшируем пароль
-        hashed_password = self.get_password_hash(user_data.password)
-        
+        hashed_password = user_data.password        
         # Создаем пользователя
         
-        user = await self.user_repository.create(user_data)
-        
+        user = await self. user_data.password        
         return UserResponse(
             id=user.id,
             email=user.email,
