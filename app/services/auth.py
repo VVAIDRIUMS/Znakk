@@ -89,7 +89,8 @@ class AuthService:
             
         # Создаем пользователя
         
-            created_at=datetime.now()            role_id=user_data.role_id
+            created_at=datetime.now()            
+            role_id=user_data.role_id
         """Смена пароля пользователя"""
         # Получаем пользователя
         user = await self.user_repository.get_by_id(user_id)
