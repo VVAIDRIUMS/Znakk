@@ -87,26 +87,24 @@ class AuthService:
         if existing_user:
             raise UserAlreadyExistsException(user_data.email)
             
-        # Создаем пользователя
-        
-            created_at=datetime.now()            role_id=user_data.role_id
-        """Смена пароля пользователя"""
-        # Получаем пользователя
-        user = await self.user_repository.get_by_id(user_id)
-        if not user:
-            raise UserNotFoundException(user_id)
+                    # Создаем пользователя
+                user = await self.user_repository.add(
+                                email=user_data.email,
+                                password=user_data.password,
+                                role_id=user_data.role_id
+                            )
 
-    async def refresh_token(self, user_id: int) -> Token:
+                return UserResponse(
+                                id=user.id,
+                                email=user.email,
+                                is_active=user.is_active,
+                                role_id=user.role_id,
+                                created_at=user.created_at
+                            )
         """Обновление токена"""
-        # Получаем пользователя
-        user = await self.user_repository.get_by_id(user_id)
-        if not user:
             raise UserNotFoundException(user_id)
-        
         # Создаем новый токен
-        access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
         access_token = self.create_access_token(
-            data={"sub": str(user.id), "email": user.email},
             expires_delta=access_token_expires
         )
         
