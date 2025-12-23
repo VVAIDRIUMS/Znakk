@@ -209,11 +209,36 @@ async function fetchProfiles(city = null, gender = null) {
   }
 }
 
+// ✅ ИСПРАВЛЕНО: Отправка данных как form data
 async function createProfile(profileData) {
-  return await apiRequest('/profiles/', {
-    method: 'POST',
-    body: profileData
-  });
+  const params = new URLSearchParams();
+  params.append('username', profileData.username);
+  params.append('age', profileData.age.toString());
+  params.append('gender', profileData.gender);
+  params.append('city', profileData.city);
+  params.append('photo', profileData.photo);
+  params.append('description', profileData.description);
+  params.append('tags', profileData.tags || '');
+  
+  try {
+    const response = await fetch(`${API_BASE}/profiles/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: params.toString(),
+      credentials: 'include'
+    });
+    
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.detail || data.message || 'Ошибка сохранения профиля');
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Create profile error:', error);
+    throw error;
+  }
 }
 
 // ============================================
@@ -282,7 +307,7 @@ async function getMyLikes() {
     return await apiRequest('/likes/my-likes');
   } catch (error) {
     console.error('Error getting my likes:', error);
-    showNotification('❌ Ошибка загрузки лайков');
+    showNotification('❌ Ошибка загружки лайков');
     return [];
   }
 }
@@ -298,7 +323,7 @@ async function getWhoLikedMe() {
     return await apiRequest('/likes/who-liked-me');
   } catch (error) {
     console.error('Error getting who liked me:', error);
-    showNotification('❌ Ошибка загрузки лайков');
+    showNotification('❌ Ошибка загружки лайков');
     return [];
   }
 }
@@ -496,7 +521,7 @@ createClose?.addEventListener('click', () => {
   createPanel?.setAttribute('aria-hidden', 'true');
 });
 
-// ✅ ИСПРАВЛЕНО: Сохранение профиля (было createeSave, теперь createSave)
+// ✅ ИСПРАВЛЕНО: Сохранение профиля
 createSave?.addEventListener('click', async () => {
   if (!currentUser) {
     showNotification('❌ Пожалуйста авторизуйтесь');
