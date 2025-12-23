@@ -35,6 +35,9 @@ const profileViewLikeBtn = document.getElementById('profile-view-like-btn');
 const profileViewUnlikeBtn = document.getElementById('profile-view-unlike-btn');
 const authPanel = document.querySelector('.auth-panel');
 const authClose = document.querySelector('.auth-close');
+const userStatus = document.getElementById('user-status');
+const userStatusEmail = document.getElementById('user-status-email');
+const logoutHeaderBtn = document.getElementById('logout-header-btn');
 
 // Helper function to convert error to string
 function getErrorMessage(error) {
@@ -162,6 +165,29 @@ function logoutUser() {
   currentUser = null;
   localStorage.removeItem('authToken');
   viewedProfiles = [];
+}
+
+// ✅ НОВОЕ - функция обновления статуса пользователя в хедере
+function updateUserStatusDisplay() {
+  if (currentUser && userStatus && userStatusEmail && logoutHeaderBtn) {
+    userStatusEmail.textContent = currentUser.email;
+    userStatus.style.display = 'flex';
+    authBtn.style.display = 'none';
+  } else if (userStatus && authBtn) {
+    userStatus.style.display = 'none';
+    authBtn.style.display = 'flex';
+  }
+}
+
+// ✅ НОВОЕ - кнопка выхода в хедере
+if (logoutHeaderBtn) {
+  logoutHeaderBtn.addEventListener('click', () => {
+    logoutUser();
+    updateAuthUI();
+    updateUserStatusDisplay();
+    showNotification('Вы вышли из аккаунта');
+    loadProfiles();
+  });
 }
 
 // Profiles API
@@ -555,6 +581,7 @@ document.getElementById('login-btn').addEventListener('click', async () => {
   try {
     await loginUser(email, password);
     updateAuthUI();
+    updateUserStatusDisplay();
     showAuthMessage('Вход выполнен успешно!', 'success');
     setTimeout(() => {
       authPanel.setAttribute('aria-hidden', 'true');
@@ -590,6 +617,7 @@ document.getElementById('register-btn').addEventListener('click', async () => {
   try {
     await registerUser(email, password);
     updateAuthUI();
+    updateUserStatusDisplay();
     showAuthMessage('Регистрация выполнена успешно!', 'success');
     setTimeout(() => {
       authPanel.setAttribute('aria-hidden', 'true');
@@ -605,6 +633,7 @@ document.getElementById('register-btn').addEventListener('click', async () => {
 document.getElementById('logout-btn').addEventListener('click', () => {
   logoutUser();
   updateAuthUI();
+  updateUserStatusDisplay();
   showAuthMessage('Вы вышли из аккаунта', 'success');
   setTimeout(() => {
     authPanel.setAttribute('aria-hidden', 'true');
@@ -625,7 +654,6 @@ function updateAuthUI() {
     document.getElementById('logout-form').style.display = 'block';
     document.getElementById('login-tab').style.display = 'none';
     document.getElementById('register-tab').style.display = 'none';
-    authBtn.textContent = '🚫 ' + currentUser.email.split('@')[0];
   } else {
     document.getElementById('login-form').style.display = 'block';
     document.getElementById('register-form').style.display = 'none';
@@ -634,7 +662,6 @@ function updateAuthUI() {
     document.getElementById('register-tab').style.display = 'block';
     document.getElementById('login-tab').classList.add('active');
     document.getElementById('register-tab').classList.remove('active');
-    authBtn.textContent = '🚫';
     
     // Clear form fields
     document.getElementById('login-email').value = '';
@@ -951,7 +978,7 @@ if (profileViewUnlikeBtn) {
 const createPreview = document.getElementById('create-preview');
 const createPreviewArea = document.querySelector('.create-preview-area');
 
-createPrevie?.addEventListener('click', () => {
+createPreview?.addEventListener('click', () => {
   const name = document.getElementById('create-name').value || "Имя";
   const age = document.getElementById('create-age').value || "Возраст";
   const gender = document.getElementById('create-gender').value;
@@ -1034,5 +1061,6 @@ window.addEventListener('DOMContentLoaded', async () => {
   }
   
   updateAuthUI();
+  updateUserStatusDisplay();
   await loadProfiles();
 });
