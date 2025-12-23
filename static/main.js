@@ -107,7 +107,7 @@ async function loginUser(email, password) {
 async function registerUser(email, password) {
   const user = await apiRequest('/auth/register', {
     method: 'POST',
-    body: JSON.stringify({ email, password })
+    body: JSON.stringify({ email, password , role_id: 1 })
   });
   
   // Auto-login after registration
