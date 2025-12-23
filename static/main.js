@@ -19,6 +19,7 @@ const createPanel = document.querySelector('.create-panel');
 const createClose = document.querySelector('.create-close');
 const createSave = document.getElementById('create-save');
 const authBtn = document.getElementById('auth-btn');
+const authBtnText = document.getElementById('auth-btn-text');
 const likedPanel = document.querySelector('.liked-panel');
 const likedList = document.querySelector('.liked-list');
 const whoLikedPanel = document.querySelector('.who-liked-panel');
@@ -167,15 +168,28 @@ function logoutUser() {
   viewedProfiles = [];
 }
 
+// ✅ НОВОЕ - функция обновления кнопки входа
+function updateAuthButtonDisplay() {
+  if (currentUser && authBtn && authBtnText) {
+    // Когда вошли
+    authBtnText.textContent = currentUser.email;
+    authBtn.style.width = 'auto';
+  } else if (authBtn && authBtnText) {
+    // Когда не вошли
+    authBtnText.textContent = '';
+    authBtn.style.width = '40px';
+  }
+}
+
 // ✅ НОВОЕ - функция обновления статуса пользователя в хедере
 function updateUserStatusDisplay() {
   if (currentUser && userStatus && userStatusEmail && logoutHeaderBtn) {
     userStatusEmail.textContent = currentUser.email;
     userStatus.style.display = 'flex';
-    authBtn.style.display = 'none';
+    if (authBtn) authBtn.style.display = 'none';
   } else if (userStatus && authBtn) {
     userStatus.style.display = 'none';
-    authBtn.style.display = 'flex';
+    if (authBtn) authBtn.style.display = 'flex';
   }
 }
 
@@ -184,6 +198,7 @@ if (logoutHeaderBtn) {
   logoutHeaderBtn.addEventListener('click', () => {
     logoutUser();
     updateAuthUI();
+    updateAuthButtonDisplay();
     updateUserStatusDisplay();
     showNotification('Вы вышли из аккаунта');
     loadProfiles();
@@ -283,7 +298,7 @@ async function loadProfiles() {
     renderCard();
   } catch (error) {
     console.error('Error loading profiles:', error);
-    showNotification('Ошибка загружки профилей');
+    showNotification('Ошибка загрузки профилей');
   }
 }
 
@@ -581,6 +596,7 @@ document.getElementById('login-btn').addEventListener('click', async () => {
   try {
     await loginUser(email, password);
     updateAuthUI();
+    updateAuthButtonDisplay();
     updateUserStatusDisplay();
     showAuthMessage('Вход выполнен успешно!', 'success');
     setTimeout(() => {
@@ -617,6 +633,7 @@ document.getElementById('register-btn').addEventListener('click', async () => {
   try {
     await registerUser(email, password);
     updateAuthUI();
+    updateAuthButtonDisplay();
     updateUserStatusDisplay();
     showAuthMessage('Регистрация выполнена успешно!', 'success');
     setTimeout(() => {
@@ -633,6 +650,7 @@ document.getElementById('register-btn').addEventListener('click', async () => {
 document.getElementById('logout-btn').addEventListener('click', () => {
   logoutUser();
   updateAuthUI();
+  updateAuthButtonDisplay();
   updateUserStatusDisplay();
   showAuthMessage('Вы вышли из аккаунта', 'success');
   setTimeout(() => {
@@ -819,7 +837,7 @@ async function renderLikedList() {
     });
   } catch (error) {
     console.error('Error rendering liked list:', error);
-    likedList.innerHTML = '<div class="empty-text">Ошибка загружки</div>';
+    likedList.innerHTML = '<div class="empty-text">Ошибка загрузки</div>';
   }
 }
 
@@ -900,7 +918,7 @@ async function renderWhoLikedList() {
     });
   } catch (error) {
     console.error('Error rendering who liked list:', error);
-    whoLikedList.innerHTML = '<div class="empty-text">Ошибка загружки</div>';
+    whoLikedList.innerHTML = '<div class="empty-text">Ошибка загрузки</div>';
   }
 }
 
@@ -1061,6 +1079,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   }
   
   updateAuthUI();
+  updateAuthButtonDisplay();
   updateUserStatusDisplay();
   await loadProfiles();
 });
