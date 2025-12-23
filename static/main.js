@@ -41,18 +41,17 @@ const profileViewUnlikeBtn = document.getElementById('profile-view-unlike-btn');
 const authPanel = document.querySelector('.auth-panel');
 const authClose = document.querySelector('.auth-close');
 
-// ✅ ИСПРАВЛЕНО: Функция для безопасного API запроса
+// ✅ Функция для безопасного API запроса
 async function apiRequest(endpoint, options = {}) {
   const headers = {
     'Content-Type': 'application/json',
     ...options.headers
   };
   
-  // ✅ ДОБАВЛЯЕМ ТОКЕН В ЗАГОЛОВОК
+  // Отправляем токен в заголовке
   if (authToken) {
     headers['Authorization'] = `Bearer ${authToken}`;
     console.log(`📤 Отправляем запрос с токеном к ${endpoint}`);
-    console.log(`🎫 Токен: ${authToken.substring(0, 20)}...`);
   } else {
     console.log(`📤 Отправляем запрос БЕЗ токена к ${endpoint}`);
   }
@@ -69,7 +68,18 @@ async function apiRequest(endpoint, options = {}) {
   
   try {
     const response = await fetch(`${API_BASE}${endpoint}`, requestOptions);
-    const data = await response.json();
+    
+    // ✅ Улучшенная обработка ошибок
+    let data = null;
+    try {
+      data = await response.json();
+    } catch (jsonError) {
+      console.error('❌ Ошибка парсинга JSON:', jsonError);
+      // Не JSON ответ - например HTML ошибка
+      const responseText = await response.text();
+      console.error('Ответ сервера:', responseText);
+      data = { detail: `Ошибка сервера: ${response.statusText}` };
+    }
     
     if (response.status === 401) {
       console.error('❌ 401 Unauthorized - Токен невалидный или истек');
@@ -78,8 +88,8 @@ async function apiRequest(endpoint, options = {}) {
     }
     
     if (!response.ok) {
-      console.error(`❌ Ошибка ${response.status}: ${data.detail || data.message}`);
-      throw new Error(data.detail || data.message || 'Ошибка запроса');
+      console.error(`❌ Ошибка ${response.status}:`, data);
+      throw new Error(data?.detail || data?.message || `Ошибка ${response.status}`);
     }
     
     console.log(`✅ Успешный ответ от ${endpoint}`);
@@ -90,7 +100,7 @@ async function apiRequest(endpoint, options = {}) {
   }
 }
 
-// ✅ НОВОЕ: Функция для получения ошибки
+// Функция для получения ошибки
 function getErrorMessage(error) {
   if (typeof error === 'string') return error;
   if (error instanceof Error) return error.message;
@@ -122,7 +132,6 @@ async function loginUser(email, password) {
       throw new Error(data.detail || 'Ошибка входа');
     }
     
-    // ✅ СОХРАНЯЕМ ТОКЕН
     authToken = data.access_token;
     localStorage.setItem('authToken', authToken);
     console.log(`✅ Токен сохранен: ${authToken.substring(0, 20)}...`);
@@ -156,7 +165,6 @@ async function registerUser(email, password) {
       throw new Error(data.detail || 'Ошибка регистрации');
     }
     
-    // После регистрации сразу логиним
     return await loginUser(email, password);
   } catch (error) {
     console.error('❌ Register error:', error);
@@ -226,7 +234,7 @@ async function fetchProfiles(city = null, gender = null) {
   }
 }
 
-// ✅ ИСПРАВЛЕНО: Отправка данных как form data
+// ✅ Отправка данных как form data
 async function createProfile(profileData) {
   const params = new URLSearchParams();
   params.append('username', profileData.username);
@@ -239,28 +247,41 @@ async function createProfile(profileData) {
   
   try {
     console.log('📤 Отправляем профиль на сервер');
+    console.log('Данные:', Object.fromEntries(params));
+    
     const response = await fetch(`${API_BASE}/profiles/`, {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/x-www-form-urlencoded',
-        // ✅ ДОБАВЛЯЕМ ТОКЕН И СЮДА
         ...(authToken && { 'Authorization': `Bearer ${authToken}` })
       },
       body: params.toString(),
       credentials: 'include'
     });
     
-    const data = await response.json();
+    console.log(`🔏 Ответ: status=${response.status}`);
+    
+    // ✅ Улучшенная обработка ответа
+    let data = null;
+    try {
+      data = await response.json();
+      console.log('🔏 Ответ JSON:', data);
+    } catch (jsonError) {
+      console.error('❌ JSON парсинг ошибка:', jsonError);
+      const responseText = await response.text();
+      console.error('Ответ текст:', responseText);
+      throw new Error(`Ошибка сервера: Получен невалидный ответ`);
+    }
     
     if (!response.ok) {
       console.error(`❌ Ошибка ${response.status}:`, data);
-      throw new Error(data.detail || data.message || 'Ошибка сохранения профиля');
+      throw new Error(data?.detail || data?.message || `Ошибка ${response.status}`);
     }
     
     console.log('✅ Профиль успешно создан:', data);
     return data;
   } catch (error) {
-    console.error('❌ Create profile error:', error);
+    console.error('❌ Create profile error:', error.message || error);
     throw error;
   }
 }
@@ -328,7 +349,7 @@ async function getMyLikes() {
     return await apiRequest('/likes/my-likes');
   } catch (error) {
     console.error('❌ Error getting my likes:', error);
-    showNotification('❌ Ошибка загрузки лайков');
+    showNotification('❌ Ошибка загружки лайков');
     return [];
   }
 }
@@ -343,7 +364,7 @@ async function getWhoLikedMe() {
     return await apiRequest('/likes/who-liked-me');
   } catch (error) {
     console.error('❌ Error getting who liked me:', error);
-    showNotification('❌ Ошибка загрузки лайков');
+    showNotification('❌ Ошибка загружки лайков');
     return [];
   }
 }
@@ -417,7 +438,7 @@ async function loadProfiles() {
     renderCard();
   } catch (error) {
     console.error('❌ Error loading profiles:', error);
-    showNotification('❌ Ошибка загрузки профилей');
+    showNotification('❌ Ошибка загружки профилей');
   }
 }
 
@@ -503,7 +524,6 @@ function viewProfile(profile) {
   document.getElementById('profile-view-contact').textContent = profile.contact || 'Не указано';
   document.getElementById('profile-view-tags').textContent = profile.tags || 'Нет';
   
-  // Проверяем лайк
   checkIfLiked(profile.id).then(isLiked => {
     if (isLiked) {
       profileViewLikeBtn.style.display = 'none';
@@ -553,7 +573,7 @@ createSave?.addEventListener('click', async () => {
   const tags = document.getElementById('create-tags').value.trim();
   
   if (!username || !age || !gender || !city || !photo || !description) {
-    showNotification('❌ Заполните все поля');
+    showNotification('❌ Заполните все обязательные поля');
     return;
   }
   
@@ -562,7 +582,7 @@ createSave?.addEventListener('click', async () => {
       username, age: parseInt(age), gender, city, photo, description, tags
     });
     
-    showNotification('✅ Профиль создан!');
+    showNotification('✅ Профиль успешно сохранен!');
     createPanel?.setAttribute('aria-hidden', 'true');
     
     document.getElementById('create-name').value = '';
@@ -791,7 +811,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   
   if (authToken) {
     try {
-      console.log('🔍 Проверка авторизации...');
+      console.log('🔍 Проверка токена...');
       console.log('✅ Пользователь авторизован');
     } catch (error) {
       console.error('❌ Ошибка авторизации:', error);
