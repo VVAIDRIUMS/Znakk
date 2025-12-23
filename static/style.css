@@ -98,6 +98,17 @@ body {
   background: #1a1a1a;
 }
 
+.dark .user-status {
+  background: #1a7f34;
+  color: white;
+  border-left: 3px solid white;
+}
+
+.dark .logout-header-btn {
+  background: #0d5a26;
+  color: white;
+}
+
 #app {
   display: flex;
   flex-direction: column;
@@ -113,6 +124,8 @@ body {
   flex-shrink: 0;
   z-index: 10;
   box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .logo {
@@ -159,6 +172,53 @@ body {
   font-size: 14px;
   width: auto;
   padding: 0 12px;
+}
+
+/* ✅ НОВОЕ - Статус пользователя */
+.user-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: linear-gradient(135deg, #34c759, #2da34c);
+  border-radius: 10px;
+  color: white;
+  font-weight: 500;
+  font-size: 13px;
+  border-left: 3px solid #fff;
+  margin-left: 8px;
+  box-shadow: 0 2px 8px rgba(52, 199, 89, 0.3);
+}
+
+.user-status-email {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
+}
+
+.logout-header-btn {
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.logout-header-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.5);
+  transform: scale(1.05);
+}
+
+.logout-header-btn:active {
+  transform: scale(0.95);
 }
 
 .profile-dot {
@@ -663,6 +723,20 @@ button:hover {
     height: 32px;
   }
   
+  .user-status {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+  
+  .user-status-email {
+    max-width: 80px;
+  }
+  
+  .logout-header-btn {
+    padding: 5px 10px;
+    font-size: 12px;
+  }
+  
   .card-stack {
     height: 420px;
     max-width: 320px;
@@ -715,6 +789,23 @@ button:hover {
   .city-filter {
     font-size: 11px;
     padding: 3px 6px;
+  }
+  
+  .user-status {
+    padding: 6px 8px;
+    font-size: 11px;
+    order: 5;
+    flex-basis: 100%;
+    justify-content: center;
+  }
+  
+  .user-status-email {
+    max-width: 150px;
+  }
+  
+  .logout-header-btn {
+    padding: 4px 8px;
+    font-size: 11px;
   }
   
   .card-stack {
