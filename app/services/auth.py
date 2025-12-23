@@ -88,7 +88,7 @@ class AuthService:
         # Проверяем, существует ли пользователь с таким email
         existing_user = await self.user_repository.get_by_email(user_data.email)
         if existing_user:
-            raise UserAlreadyExistsException(f"User with email {user_data.email} already exists")
+            raise UserAlreadyExistsException(user_data.email)
         
         # Хешируем пароль
         hashed_password = self.hash_password(user_data.password)
@@ -113,7 +113,7 @@ class AuthService:
         # Получаем пользователя
         user = await self.user_repository.get_by_id(user_id)
         if not user:
-            raise UserNotFoundException(f"User with id {user_id} not found")
+            raise UserNotFoundException(user_id)
         
         # Проверяем текущий пароль
         if not self.verify_password(password_data.current_password, user.password):
@@ -131,7 +131,7 @@ class AuthService:
         """Обновление токена"""
         user = await self.user_repository.get_by_id(user_id)
         if not user:
-            raise UserNotFoundException(f"User with id {user_id} not found")
+            raise UserNotFoundException(user_id)
         
         # Создаем новый токен
         access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
@@ -150,7 +150,7 @@ class AuthService:
         """Получение информации о текущем пользователе"""
         user = await self.user_repository.get_by_id(user_id)
         if not user:
-            raise UserNotFoundException(f"User with id {user_id} not found")
+            raise UserNotFoundException(user_id)
         
         return UserResponse(
             id=user.id,
