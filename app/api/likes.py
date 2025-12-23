@@ -4,9 +4,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.database.database import get_db
-from app.models.likes import Like
-from app.models.profiles import Profile
-from app.models.users import User
+from app.models.likes import LikeModel
+from app.models.profiles import ProfileModel
+from app.models.users import UserModel
 from app.schemas.likes import LikeCreate, LikeResponse
 from app.schemas.profiles import ProfileResponse
 from app.api.dependencies import get_current_user_id
@@ -28,7 +28,7 @@ async def add_like(
     """
     try:
         # Проверяем что у пользователя есть профиль
-        user_profile_stmt = select(Profile).where(Profile.user_id == current_user_id)
+        user_profile_stmt = select(ProfileModel).where(ProfileModel.user_id == current_user_id)
         user_profile = await db.scalar(user_profile_stmt)
         
         if not user_profile:
@@ -45,7 +45,7 @@ async def add_like(
             }
         
         # Проверяем что профиль существует
-        liked_profile_stmt = select(Profile).where(Profile.id == like_data.liked_profile_id)
+        liked_profile_stmt = select(ProfileModel).where(ProfileModel.id == like_data.liked_profile_id)
         liked_profile = await db.scalar(liked_profile_stmt)
         
         if not liked_profile:
@@ -55,9 +55,9 @@ async def add_like(
             }
         
         # Проверяем нет ли уже лайка
-        existing_like_stmt = select(Like).where(
-            Like.user_id == current_user_id,
-            Like.liked_profile_id == like_data.liked_profile_id
+        existing_like_stmt = select(LikeModel).where(
+            LikeModel.user_id == current_user_id,
+            LikeModel.liked_profile_id == like_data.liked_profile_id
         )
         existing_like = await db.scalar(existing_like_stmt)
         
@@ -68,9 +68,10 @@ async def add_like(
             }
         
         # Сохраняем лайк
-        new_like = Like(
+        new_like = LikeModel(
             user_id=current_user_id,
-            liked_profile_id=like_data.liked_profile_id
+            liked_profile_id=like_data.liked_profile_id,
+            role_id=1  # ✅ Нужен для совместимости с моделью
         )
         db.add(new_like)
         await db.commit()
@@ -82,6 +83,7 @@ async def add_like(
         }
     except Exception as e:
         await db.rollback()
+        print(f"Error in add_like: {e}")  # ✅ Логирование для отладки
         return {
             "success": False,
             "message": f"Ошибка: {str(e)}"
@@ -100,9 +102,9 @@ async def remove_like(
     """
     try:
         # Находим лайк
-        like_stmt = select(Like).where(
-            Like.user_id == current_user_id,
-            Like.liked_profile_id == liked_profile_id
+        like_stmt = select(LikeModel).where(
+            LikeModel.user_id == current_user_id,
+            LikeModel.liked_profile_id == liked_profile_id
         )
         like = await db.scalar(like_stmt)
         
@@ -121,6 +123,7 @@ async def remove_like(
         }
     except Exception as e:
         await db.rollback()
+        print(f"Error in remove_like: {e}")
         return {
             "success": False,
             "message": f"Ошибка: {str(e)}"
@@ -134,18 +137,18 @@ async def get_my_likes(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Получить профили которым я лайкнул
+    Получить профили которому я лайкнул
     """
     try:
         # Находим все лайки текущего пользователя
-        stmt = select(Like).where(Like.user_id == current_user_id)
+        stmt = select(LikeModel).where(LikeModel.user_id == current_user_id)
         likes = await db.scalars(stmt)
         likes_list = list(likes)
         
         profiles = []
         for like in likes_list:
             # Находим профиль который лайкнули
-            profile_stmt = select(Profile).where(Profile.id == like.liked_profile_id)
+            profile_stmt = select(ProfileModel).where(ProfileModel.id == like.liked_profile_id)
             profile = await db.scalar(profile_stmt)
             if profile:
                 profiles.append(ProfileResponse.model_validate(profile))
@@ -167,21 +170,21 @@ async def get_who_liked_me(
     """
     try:
         # Находим профиль текущего пользователя
-        my_profile_stmt = select(Profile).where(Profile.user_id == current_user_id)
+        my_profile_stmt = select(ProfileModel).where(ProfileModel.user_id == current_user_id)
         my_profile = await db.scalar(my_profile_stmt)
         
         if not my_profile:
             return []
         
         # Находим все лайки которые получил мой профиль
-        stmt = select(Like).where(Like.liked_profile_id == my_profile.id)
+        stmt = select(LikeModel).where(LikeModel.liked_profile_id == my_profile.id)
         likes = await db.scalars(stmt)
         likes_list = list(likes)
         
         profiles = []
         for like in likes_list:
             # Находим профиль который лайкнул
-            profile_stmt = select(Profile).where(Profile.user_id == like.user_id)
+            profile_stmt = select(ProfileModel).where(ProfileModel.user_id == like.user_id)
             profile = await db.scalar(profile_stmt)
             if profile:
                 profiles.append(ProfileResponse.model_validate(profile))
@@ -200,12 +203,12 @@ async def check_like(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Проверить был ли лайк на спецификичный профиль
+    Проверить был ли лайк на специфичный профиль
     """
     try:
-        stmt = select(Like).where(
-            Like.user_id == current_user_id,
-            Like.liked_profile_id == profile_id
+        stmt = select(LikeModel).where(
+            LikeModel.user_id == current_user_id,
+            LikeModel.liked_profile_id == profile_id
         )
         like = await db.scalar(stmt)
         
