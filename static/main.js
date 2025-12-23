@@ -328,13 +328,14 @@ function renderCard() {
   
   const genderEmoji = profile.gender === 'male' ? '🚮' : profile.gender === 'female' ? '🚮' : '';
   
+  // ✅ ИСПРАВЛЕНО: photo вместо photo_url, username вместо name, description вместо bio
   card.innerHTML = `
     <div class="card-inner">
-      <div class="card-photo" style="background-image: url(${profile.photo_url || 'https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?w=800&q=80'})"></div>
+      <div class="card-photo" style="background-image: url(${profile.photo || 'https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?w=800&q=80'})"></div>
       <div class="card-info">
-        <div class="card-name-age">${genderEmoji} ${profile.name}, ${profile.age}</div>
+        <div class="card-name-age">${genderEmoji} ${profile.username}, ${profile.age}</div>
         <div class="card-city">${profile.city || ''}</div>
-        <div class="card-bio">${profile.bio || ''}</div>
+        <div class="card-bio">${profile.description || ''}</div>
       </div>
     </div>
   `;
@@ -397,7 +398,8 @@ async function likeProfile(profile) {
       }, 300);
     }
     
-    showNotification(`Вы лайкнули ${profile.name}!`);
+    // ✅ ИСПРАВЛЕНО: username вместо name
+    showNotification(`Вы лайкнули ${profile.username}!`);
     return true;
   } catch (error) {
     console.error('Error liking profile:', error);
@@ -412,7 +414,8 @@ async function unlikeProfile(profile) {
   
   try {
     await unlikeProfileAPI(profile.id);
-    showNotification(`Лайк для ${profile.name} убран`);
+    // ✅ ИСПРАВЛЕНО: username вместо name
+    showNotification(`Лайк для ${profile.username} убран`);
     return true;
   } catch (error) {
     console.error('Error unliking profile:', error);
@@ -442,7 +445,8 @@ function skipCurrentProfile() {
       }, 300);
     }
     
-    showNotification(`Вы пропустили ${profile.name}`);
+    // ✅ ИСПРАВЛЕНО: username вместо name
+    showNotification(`Вы пропустили ${profile.username}`);
     nextCard();
   }
 }
@@ -712,32 +716,35 @@ if (createSave) {
       return;
     }
     
-    const name = document.getElementById('create-name').value;
+    // ✅ ИСПРАВЛЕНО: используем правильные имена полей
+    const username = document.getElementById('create-name').value;   // ✅ name → username
     const age = document.getElementById('create-age').value;
     const gender = document.getElementById('create-gender').value;
     const city = document.getElementById('create-city').value;
-    const photo = document.getElementById('create-photo').value;
-    const bio = document.getElementById('create-bio').value;
-    const contact = document.getElementById('create-contact').value;
-    const tags = document.getElementById('create-tags').value;
+    const photo = document.getElementById('create-photo').value;     // ✅ photo, не photo_url
+    const description = document.getElementById('create-bio').value;  // ✅ bio → description
+    const tags = document.getElementById('create-tags').value;        // ✅ строка, не массив
     
-    if (!name || !age || !gender) {
+    if (!username || !age || !gender) {
       alert('Заполните имя, возраст и пол');
       return;
     }
     
+    // ✅ ИСПРАВЛЕНО: правильная структура данных с user_id и role_id
     const profileData = {
-      name,
+      user_id: currentUser.id,                                        // ✅ ДОБАВЛЕНО
+      username: username,                                             // ✅ ПЕРЕИМЕНОВАНО
       age: parseInt(age),
-      gender,
-      city,
-      photo_url: photo,
-      bio,
-      contact_info: contact,
-      tags: tags.split(',').map(t => t.trim()).filter(t => t)
+      gender: gender,
+      city: city || '',
+      description: description || '',                                 // ✅ ПЕРЕИМЕНОВАНО
+      photo: photo || 'https://via.placeholder.com/300x400',         // ✅ ПЕРЕИМЕНОВАНО
+      tags: tags || '',                                               // ✅ строка
+      role_id: currentUser.role_id || 1                              // ✅ ДОБАВЛЕНО
     };
     
     try {
+      console.log('📤 Отправляю profileData:', profileData);  // ✅ Логирование
       myProfile = await createProfile(profileData);
       showNotification('Профиль создан успешно!');
       if (createPanel) createPanel.setAttribute('aria-hidden', 'true');
@@ -749,13 +756,13 @@ if (createSave) {
       document.getElementById('create-city').value = '';
       document.getElementById('create-photo').value = '';
       document.getElementById('create-bio').value = '';
-      document.getElementById('create-contact').value = '';
       document.getElementById('create-tags').value = '';
       
       // Reload profiles
-      loadProfiles();
+      await loadProfiles();
     } catch (error) {
       const errorMessage = getErrorMessage(error);
+      console.error('❌ Error creating profile:', error); // ✅ Логирование ошибки
       alert('Ошибка создания профиля: ' + errorMessage);
     }
   });
@@ -802,10 +809,11 @@ async function renderLikedList() {
       const item = document.createElement('div');
       item.className = 'liked-item';
       const genderEmoji = profile.gender === 'male' ? '🚮' : profile.gender === 'female' ? '🚮' : '';
+      // ✅ ИСПРАВЛЕНО: photo вместо photo_url, username вместо name
       item.innerHTML = `
-        <div class="profile-photo-small" style="background-image: url(${profile.photo_url || 'https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?w=800&q=80'})"></div>
+        <div class="profile-photo-small" style="background-image: url(${profile.photo || 'https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?w=800&q=80'})"></div>
         <div class="profile-info">
-          <div class="profile-name-age">${genderEmoji} ${profile.name}, ${profile.age}</div>
+          <div class="profile-name-age">${genderEmoji} ${profile.username}, ${profile.age}</div>
           <div class="profile-city">${profile.city || 'Город не указан'}</div>
         </div>
         <div class="item-actions">
@@ -867,10 +875,11 @@ async function renderWhoLikedList() {
       const item = document.createElement('div');
       item.className = 'who-liked-item';
       const genderEmoji = profile.gender === 'male' ? '🚮' : profile.gender === 'female' ? '🚮' : '';
+      // ✅ ИСПРАВЛЕНО: photo вместо photo_url, username вместо name
       item.innerHTML = `
-        <div class="profile-photo-small" style="background-image: url(${profile.photo_url || 'https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?w=800&q=80'})"></div>
+        <div class="profile-photo-small" style="background-image: url(${profile.photo || 'https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?w=800&q=80'})"></div>
         <div class="profile-info">
-          <div class="profile-name-age">${genderEmoji} ${profile.name}, ${profile.age}</div>
+          <div class="profile-name-age">${genderEmoji} ${profile.username}, ${profile.age}</div>
           <div class="profile-city">${profile.city}</div>
         </div>
         <div class="item-actions">
@@ -933,14 +942,15 @@ async function renderWhoLikedList() {
 function viewProfile(profile) {
   currentViewingProfile = profile;
   
-  document.getElementById('profile-view-photo').style.backgroundImage = `url(${profile.photo_url || 'https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?w=800&q=80'})`;
-  document.getElementById('profile-view-name').textContent = profile.name;
+  // ✅ ИСПРАВЛЕНО: правильные имена полей
+  document.getElementById('profile-view-photo').style.backgroundImage = `url(${profile.photo || 'https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?w=800&q=80'})`;
+  document.getElementById('profile-view-name').textContent = profile.username;
   document.getElementById('profile-view-age').textContent = `${profile.age} лет`;
   document.getElementById('profile-view-gender').textContent = profile.gender === 'male' ? 'Мужчина' : profile.gender === 'female' ? 'Женщина' : 'Не указан';
   document.getElementById('profile-view-city').textContent = profile.city || 'Не указан';
-  document.getElementById('profile-view-bio').textContent = profile.bio || 'Не указано';
-  document.getElementById('profile-view-contact').textContent = profile.contact_info || 'Не указан';
-  document.getElementById('profile-view-tags').textContent = Array.isArray(profile.tags) ? profile.tags.join(', ') : 'Не указаны';
+  document.getElementById('profile-view-bio').textContent = profile.description || 'Не указано';
+  document.getElementById('profile-view-contact').textContent = profile.tags || 'Не указаны';
+  document.getElementById('profile-view-tags').textContent = profile.tags || 'Не указаны';
   
   // Show/hide appropriate buttons
   getLikedProfiles().then(likedProfiles => {
@@ -1004,12 +1014,12 @@ const createPreview = document.getElementById('create-preview');
 const createPreviewArea = document.querySelector('.create-preview-area');
 
 createPreview?.addEventListener('click', () => {
-  const name = document.getElementById('create-name').value || "Имя";
+  const username = document.getElementById('create-name').value || "Имя";  // ✅ ИСПРАВЛЕНО
   const age = document.getElementById('create-age').value || "Возраст";
   const gender = document.getElementById('create-gender').value;
   const city = document.getElementById('create-city').value || "Город";
-  const bio = document.getElementById('create-bio').value || "О себе";
-  const photo = document.getElementById('create-photo').value || "https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?w=800&q=80";
+  const description = document.getElementById('create-bio').value || "О себе";  // ✅ ИСПРАВЛЕНО
+  const photo = document.getElementById('create-photo').value || "https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?w=800&q=80";  // ✅ ИСПРАВЛЕНО
   
   const genderEmoji = gender === 'male' ? '🚮' : gender === 'female' ? '🚮' : '';
   
@@ -1018,9 +1028,9 @@ createPreview?.addEventListener('click', () => {
       <div class="card-inner">
         <div class="card-photo" style="background-image: url(${photo})"></div>
         <div class="card-info">
-          <div class="card-name-age">${genderEmoji} ${name}, ${age}</div>
+          <div class="card-name-age">${genderEmoji} ${username}, ${age}</div>
           <div class="card-city">${city}</div>
-          <div class="card-bio">${bio}</div>
+          <div class="card-bio">${description}</div>
         </div>
       </div>
     </div>
