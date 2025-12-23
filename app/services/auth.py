@@ -19,11 +19,7 @@ from app.exceptions.users import (
     InvalidPasswordException,
     UserNotFoundException
 )
-
-# Настройки JWT
-SECRET_KEY = "your-secret-key-change-this-in-production"  # В продакшене используйте переменные окружения
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+from app.config import settings  # ✅ НОВОЕ - импортировать конфиг
 
 
 class AuthService:
@@ -48,10 +44,11 @@ class AuthService:
         if expires_delta:
             expire = datetime.utcnow() + expires_delta
         else:
-            expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+            expire = datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
         
         to_encode.update({"exp": expire})
-        encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+        # ✅ ИСПРАВЛЕНО - использовать settings.SECRET_KEY
+        encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
         return encoded_jwt
 
     async def authenticate_user(self, login_data: UserLogin) -> Token:
@@ -71,11 +68,13 @@ class AuthService:
             raise InvalidCredentialsException("User account is disabled")
         
         # Создаем токен
-        access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
         access_token = self.create_access_token(
             data={"sub": str(user.id), "email": user.email},
             expires_delta=access_token_expires
         )
+        
+        print(f"✅ Token created for user {user.email} with SECRET_KEY length: {len(settings.SECRET_KEY)}")
         
         return Token(
             access_token=access_token,
@@ -134,7 +133,7 @@ class AuthService:
             raise UserNotFoundException(user_id)
         
         # Создаем новый токен
-        access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
         access_token = self.create_access_token(
             data={"sub": str(user.id), "email": user.email},
             expires_delta=access_token_expires
@@ -163,7 +162,8 @@ class AuthService:
     async def validate_token(self, token: str) -> dict:
         """Валидация токена"""
         try:
-            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            # ✅ ИСПРАВЛЕНО - использовать settings.SECRET_KEY
+            payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
             user_id: str = payload.get("sub")
             if user_id is None:
                 raise InvalidCredentialsException("Invalid token")
