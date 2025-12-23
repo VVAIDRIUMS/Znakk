@@ -34,13 +34,15 @@ async def create_profile(
     
     - **username**: Никнейм пользователя
     - **age**: Возраст
-    - **gender**: Пол (строка 'мале' или 'female')
+    - **gender**: Пол (строка 'male' или 'female')
     - **city**: Город
     - **photo**: URL фотографии
     - **description**: Описание профиля
     - **tags**: Теги (опционально)
     """
     try:
+        print(f"🔍 Проверка данных: username={username}, age={age}, gender={gender}")
+        
         # ✅ Проверяем что профиль еще не сохранен
         existing_profile_stmt = select(ProfileModel).where(
             ProfileModel.user_id == current_user_id
@@ -48,41 +50,76 @@ async def create_profile(
         existing_profile = await db.scalar(existing_profile_stmt)
         
         if existing_profile:
+            print(f"❌ Профиль user_id={current_user_id} уже существует")
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="У вас уже есть профиль"
             )
         
-        # ✅ Создаем ProfileCreate с user_id и role_id
+        # ✅ Проверяем данные
+        if not all([username, age, gender, city, photo, description]):
+            print("❌ Отсутствуют обязательные поля")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Все поля обязательные"
+            )
+        
+        # ✅ Проверяем возраст
+        try:
+            age_int = int(age)
+            if age_int < 18 or age_int > 120:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Возраст должен быть от 18 до 120"
+                )
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Возраст должен быть числом"
+            )
+        
+        # ✅ Ок все хорошо, дальше сохраняем
+        # НУЖНО трансформировать в правильные типы
         profile_data = ProfileCreate(
             user_id=current_user_id,
-            username=username,
-            age=age,
-            gender=gender,
-            city=city,
-            photo=photo,
-            description=description,
-            tags=tags,
+            username=username.strip(),
+            age=age_int,
+            gender=gender.strip(),
+            city=city.strip(),
+            photo=photo.strip(),
+            description=description.strip(),
+            tags=tags.strip() if tags else "",
             role_id=1  # ✅ Обычные пользователи
         )
         
+        print(f"🔏 Профиль: {profile_data}")
+        
         service = ProfileService(db)
-        return await service.create_profile(profile_data)
-    except HTTPException:
+        result = await service.create_profile(profile_data)
+        
+        print(f"✅ Профиль сухественно сохранен: {result}")
+        return result
+        
+    except HTTPException as e:
+        print(f"❌ HTTPException: status={e.status_code}, detail={e.detail}")
         raise
     except ProfileAlreadyExistsException as e:
+        print(f"❌ ProfileAlreadyExistsException: {e}")
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=str(e)
         )
     except Exception as e:
-        print(f"Error creating profile: {e}")
+        print(f"❌ Непредвиденная ошибка: {type(e).__name__}: {str(e)}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Ошибка сервера: {str(e)}"
         )
 
 
+# ✅ НОВОЕ: Получить все профили с фильтрами
 @router.get("/", response_model=List[ProfileResponse])
 async def get_all_profiles(
     city: Optional[str] = Query(None, max_length=30),
@@ -107,36 +144,7 @@ async def get_all_profiles(
     return await service.get_all_profiles(skip, limit)
 
 
-@router.get("/{profile_id}", response_model=ProfileResponse)
-async def get_profile(
-    profile_id: int,
-    db: AsyncSession = Depends(get_db)
-):
-    service = ProfileService(db)
-    try:
-        return await service.get_profile(profile_id)
-    except ProfileNotFoundException as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
-        )
-
-
-@router.get("/user/{user_id}", response_model=ProfileResponse)
-async def get_profile_by_user_id(
-    user_id: int,
-    db: AsyncSession = Depends(get_db)
-):
-    service = ProfileService(db)
-    try:
-        return await service.get_profile_by_user_id(user_id)
-    except ProfileNotFoundException as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
-        )
-
-
+# ✅ НОВОЕ: Получить по никнейму (до получения по ID)
 @router.get("/username/{username}", response_model=ProfileResponse)
 async def get_profile_by_username(
     username: str,
@@ -152,6 +160,39 @@ async def get_profile_by_username(
         )
 
 
+# ✅ НОВОЕ: Получить по user_id до получения по ID
+@router.get("/user/{user_id}", response_model=ProfileResponse)
+async def get_profile_by_user_id(
+    user_id: int,
+    db: AsyncSession = Depends(get_db)
+):
+    service = ProfileService(db)
+    try:
+        return await service.get_profile_by_user_id(user_id)
+    except ProfileNotFoundException as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )
+
+
+# ✅ НОВОЕ: Получить по ID (апосле строков)
+@router.get("/{profile_id}", response_model=ProfileResponse)
+async def get_profile(
+    profile_id: int,
+    db: AsyncSession = Depends(get_db)
+):
+    service = ProfileService(db)
+    try:
+        return await service.get_profile(profile_id)
+    except ProfileNotFoundException as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )
+
+
+# ✅ ОБНОВЛЕНО: Обновление профиля
 @router.put("/{profile_id}", response_model=ProfileResponse)
 async def update_profile(
     profile_id: int,
@@ -173,6 +214,7 @@ async def update_profile(
         )
 
 
+# ✅ ОБНОвлено: Удаление профиля
 @router.delete("/{profile_id}")
 async def delete_profile(
     profile_id: int,
@@ -188,6 +230,7 @@ async def delete_profile(
         )
 
 
+# ✅ ОБНОвлено: Получить по role_id
 @router.get("/role/{role_id}", response_model=List[ProfileResponse])
 async def get_profiles_by_role(
     role_id: int,
