@@ -15,7 +15,8 @@ from app.services.auth import AuthService
 from app.exceptions.users import (
     UserAlreadyExistsException,
     InvalidCredentialsException,
-    InvalidPasswordException
+    InvalidPasswordException,
+    UserNotFoundException
 )
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -34,7 +35,7 @@ async def register_user(
     """
     service = AuthService(db)
     try:
-        print(f"{user_data=}")
+        print(f"Registering user: {user_data.email}")
         return await service.register_user(user_data)
     except UserAlreadyExistsException as e:
         raise HTTPException(
@@ -42,9 +43,10 @@ async def register_user(
             detail=str(e)
         )
     except Exception as e:
+        print(f"Registration error: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Ошибка регистрации: {str(e)}"
+            detail=f"Registration error: {str(e)}"
         )
 
 
@@ -65,17 +67,20 @@ async def login_user(
     )
     
     try:
+        print(f"Authenticating user: {login_data.email}")
         return await service.authenticate_user(login_data)
-    except InvalidCredentialsException:
+    except InvalidCredentialsException as e:
+        print(f"Authentication failed: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Неверный email или пароль",
+            detail=str(e),
             headers={"WWW-Authenticate": "Bearer"}
         )
     except Exception as e:
+        print(f"Login error: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Ошибка входа: {str(e)}"
+            detail=f"Login error: {str(e)}"
         )
 
 
@@ -90,17 +95,20 @@ async def login_user_json(
     service = AuthService(db)
     
     try:
+        print(f"Authenticating user (JSON): {login_data.email}")
         return await service.authenticate_user(login_data)
-    except InvalidCredentialsException:
+    except InvalidCredentialsException as e:
+        print(f"Authentication failed: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Неверный email или пароль",
+            detail=str(e),
             headers={"WWW-Authenticate": "Bearer"}
         )
     except Exception as e:
+        print(f"Login error: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Ошибка входа: {str(e)}"
+            detail=f"Login error: {str(e)}"
         )
 
 
@@ -113,7 +121,18 @@ async def refresh_token(
     Обновление токена
     """
     service = AuthService(db)
-    return await service.refresh_token(current_user_id)
+    try:
+        return await service.refresh_token(current_user_id)
+    except UserNotFoundException as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Error refreshing token: {str(e)}"
+        )
 
 
 @router.post("/change-password")
@@ -133,10 +152,15 @@ async def change_password(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
+    except UserNotFoundException as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Ошибка смены пароля: {str(e)}"
+            detail=f"Error changing password: {str(e)}"
         )
 
 
@@ -149,7 +173,18 @@ async def get_current_user(
     Получение информации о текущем пользователе
     """
     service = AuthService(db)
-    return await service.get_current_user(current_user_id)
+    try:
+        return await service.get_current_user(current_user_id)
+    except UserNotFoundException as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Error getting user: {str(e)}"
+        )
 
 
 @router.post("/logout")
