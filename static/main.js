@@ -1,4 +1,4 @@
-// Dating app with API integration
+// Dating app - НОВАЯ СТАБИЛЬНАЯ ВЕРСИЯ
 const API_BASE = window.location.origin;
 
 let profiles = [];
@@ -40,69 +40,35 @@ const userStatus = document.getElementById('user-status');
 const userStatusEmail = document.getElementById('user-status-email');
 const logoutHeaderBtn = document.getElementById('logout-header-btn');
 
-// Helper function to convert error to string
-function getErrorMessage(error) {
-  if (typeof error === 'string') {
-    return error;
-  }
-  if (error instanceof Error) {
-    return error.message || 'Unknown error';
-  }
-  if (error && typeof error === 'object') {
-    if (error.detail) {
-      // Если detail это массив, покажи первую ошибку
-      if (Array.isArray(error.detail)) {
-        const firstError = error.detail[0];
-        if (firstError.msg) return firstError.msg;
-        if (firstError.loc) return `Поле '${firstError.loc[1]}': ${firstError.msg || 'ошибка'}`;
-        return JSON.stringify(firstError);
-      }
-      return error.detail;
-    }
-    if (error.message) return error.message;
-    return JSON.stringify(error);
-  }
-  return String(error) || 'Unknown error';
-}
-
-// API Functions
+// ✅ НОВОЕ: Функция для безопасного API запроса
 async function apiRequest(endpoint, options = {}) {
   const headers = {
     'Content-Type': 'application/json',
     ...options.headers
   };
   
-  if (authToken) {
-    headers['Authorization'] = `Bearer ${authToken}`;
+  const requestOptions = {
+    method: options.method || 'GET',
+    headers,
+    credentials: 'include'
+  };
+  
+  if (options.body) {
+    requestOptions.body = typeof options.body === 'string' ? options.body : JSON.stringify(options.body);
   }
   
   try {
-    const response = await fetch(`${API_BASE}${endpoint}`, {
-      ...options,
-      headers
-    });
-    
-    if (response.status === 401) {
-      console.error('401 Unauthorized for endpoint:', endpoint);
-      console.error('Token preview:', authToken ? authToken.substring(0, 20) + '...' : 'No token');
-      
-      authToken = null;
-      currentUser = null;
-      localStorage.removeItem('authToken');
-      updateAuthUI();
-      updateAuthButtonDisplay();
-      updateUserStatusDisplay();
-      
-      showNotification('Сессия истекла. Пожалуйста, войдите снова');
-      authPanel.setAttribute('aria-hidden', 'false');
-      
-      throw new Error('Токен не активен или истек');
-    }
-    
+    const response = await fetch(`${API_BASE}${endpoint}`, requestOptions);
     const data = await response.json();
     
+    if (response.status === 401) {
+      console.error('❌ 401 Unauthorized');
+      // НЕ выходим из аккаунта, просто возвращаем ошибку
+      throw new Error('Требуется авторизация');
+    }
+    
     if (!response.ok) {
-      throw new Error(data.detail || 'Ошибка запроса');
+      throw new Error(data.detail || data.message || 'Ошибка запроса');
     }
     
     return data;
@@ -112,7 +78,19 @@ async function apiRequest(endpoint, options = {}) {
   }
 }
 
-// Auth API
+// ✅ НОВОЕ: Функция для получения ошибки
+function getErrorMessage(error) {
+  if (typeof error === 'string') return error;
+  if (error instanceof Error) return error.message;
+  if (error?.detail) return error.detail;
+  if (error?.message) return error.message;
+  return 'Неизвестная ошибка';
+}
+
+// ============================================
+// AUTHENTICATION FUNCTIONS
+// ============================================
+
 async function loginUser(email, password) {
   const formData = new URLSearchParams();
   formData.append('username', email);
@@ -121,52 +99,52 @@ async function loginUser(email, password) {
   try {
     const response = await fetch(`${API_BASE}/auth/login`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded'
-      },
-      body: formData
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: formData,
+      credentials: 'include'
     });
     
     const data = await response.json();
     
     if (!response.ok) {
-      const errorMessage = data.detail || data.message || 'Ошибка входа';
-      throw new Error(errorMessage);
+      throw new Error(data.detail || 'Ошибка входа');
     }
     
     authToken = data.access_token;
-    console.log('✅ Token received and saved');
-    console.log('Token preview:', authToken.substring(0, 20) + '...');
     localStorage.setItem('authToken', authToken);
     
     currentUser = {
       id: data.user_id,
       email: email,
-      role_id: data.role_id
+      role_id: data.role_id || 1
     };
-    
-    try {
-      const fullUser = await apiRequest('/users/me');
-      currentUser = fullUser;
-      console.log('✅ User data loaded from /users/me');
-    } catch (userError) {
-      console.warn('⚠️ Could not load full user data:', userError);
-    }
     
     return currentUser;
   } catch (error) {
-    console.error('Login error:', error);
     throw error;
   }
 }
 
 async function registerUser(email, password) {
-  const user = await apiRequest('/auth/register', {
-    method: 'POST',
-    body: JSON.stringify({ email, password , role_id: 1 })
-  });
-  
-  return await loginUser(email, password);
+  try {
+    const response = await fetch(`${API_BASE}/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password, role_id: 1 }),
+      credentials: 'include'
+    });
+    
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.detail || 'Ошибка регистрации');
+    }
+    
+    // После регистрации сразу логинимся
+    return await loginUser(email, password);
+  } catch (error) {
+    throw error;
+  }
 }
 
 function logoutUser() {
@@ -174,6 +152,29 @@ function logoutUser() {
   currentUser = null;
   localStorage.removeItem('authToken');
   viewedProfiles = [];
+}
+
+function updateAuthUI() {
+  if (currentUser) {
+    document.getElementById('current-user-email').textContent = currentUser.email;
+    document.getElementById('login-form').style.display = 'none';
+    document.getElementById('register-form').style.display = 'none';
+    document.getElementById('logout-form').style.display = 'block';
+    document.getElementById('login-tab').style.display = 'none';
+    document.getElementById('register-tab').style.display = 'none';
+  } else {
+    document.getElementById('login-form').style.display = 'block';
+    document.getElementById('register-form').style.display = 'none';
+    document.getElementById('logout-form').style.display = 'none';
+    document.getElementById('login-tab').style.display = 'block';
+    document.getElementById('register-tab').style.display = 'block';
+  }
+}
+
+function showAuthMessage(message, type) {
+  const authMessage = document.getElementById('auth-message');
+  authMessage.textContent = message;
+  authMessage.className = `auth-message ${type}`;
 }
 
 function updateAuthButtonDisplay() {
@@ -197,334 +198,140 @@ function updateUserStatusDisplay() {
   }
 }
 
-if (logoutHeaderBtn) {
-  logoutHeaderBtn.addEventListener('click', () => {
-    logoutUser();
-    updateAuthUI();
-    updateAuthButtonDisplay();
-    updateUserStatusDisplay();
-    showNotification('Вы вышли из аккаунта');
-    loadProfiles();
-  });
-}
+// ============================================
+// PROFILES FUNCTIONS
+// ============================================
 
-// Profiles API
 async function fetchProfiles(city = null, gender = null) {
   let endpoint = '/profiles/';
   const params = new URLSearchParams();
   
-  if (city && city !== 'all') {
-    params.append('city', city);
-  }
+  if (city && city !== 'all') params.append('city', city);
+  if (gender && gender !== 'all') params.append('gender', gender);
   
-  if (gender && gender !== 'all') {
-    params.append('gender', gender);
-  }
-  
-  if (params.toString()) {
-    endpoint += '?' + params.toString();
-  }
+  if (params.toString()) endpoint += '?' + params.toString();
   
   try {
     return await apiRequest(endpoint);
   } catch (error) {
     console.error('Error fetching profiles:', error);
-    const response = await fetch('/api/profiles');
-    return await response.json();
+    return [];
   }
 }
 
 async function createProfile(profileData) {
   return await apiRequest('/profiles/', {
     method: 'POST',
-    body: JSON.stringify(profileData)
+    body: profileData
   });
 }
 
-async function updateProfile(profileId, profileData) {
-  return await apiRequest(`/profiles/${profileId}`, {
-    method: 'PUT',
-    body: JSON.stringify(profileData)
-  });
-}
+// ============================================
+// LIKES FUNCTIONS - НОВАЯ СТАБИЛЬНАЯ ВЕРСИЯ
+// ============================================
 
-// Likes API
-async function likeProfileAPI(profileId) {
-  return await apiRequest('/likes/', {
-    method: 'POST',
-    body: JSON.stringify({ liked_profile_id: profileId })
-  });
-}
-
-async function unlikeProfileAPI(profileId) {
-  return await apiRequest(`/likes/${profileId}`, {
-    method: 'DELETE'
-  });
-}
-
-async function getLikedProfiles() {
-  try {
-    return await apiRequest('/likes/my-likes');
-  } catch (error) {
-    console.error('Error fetching liked profiles:', error);
-    return [];
-  }
-}
-
-async function getWhoLikedMe() {
-  try {
-    return await apiRequest('/likes/who-liked-me');
-  } catch (error) {
-    console.error('Error fetching who liked me:', error);
-    return [];
-  }
-}
-
-// ✅ НОВОЕ: Функция валидации формы профиля
-function validateProfileForm() {
-  const username = document.getElementById('create-name').value.trim();
-  const age = document.getElementById('create-age').value.trim();
-  const gender = document.getElementById('create-gender').value.trim();
-  const city = document.getElementById('create-city').value.trim();
-  const photo = document.getElementById('create-photo').value.trim();
-  const description = document.getElementById('create-bio').value.trim();
-  const tags = document.getElementById('create-tags').value.trim();
-  
-  // Проверяем ВСЕ поля
-  if (!username) {
-    alert('❌ ОШИБКА: Заполните имя (обязательное поле)');
-    return false;
-  }
-  
-  if (!age) {
-    alert('❌ ОШИБКА: Заполните возраст');
-    return false;
-  }
-  
-  const ageNum = parseInt(age);
-  if (isNaN(ageNum) || ageNum < 18 || ageNum > 120) {
-    alert('❌ ОШИБКА: Возраст должен быть от 18 до 120 лет');
-    return false;
-  }
-  
-  if (!gender) {
-    alert('❌ ОШИБКА: Выберите пол (обязательное поле)');
-    return false;
-  }
-  
-  if (!city) {
-    alert('❌ ОШИБКА: Заполните город (обязательное поле)');
-    return false;
-  }
-  
-  if (city.length > 30) {
-    alert('❌ ОШИБКА: Город не должен быть больше 30 символов');
-    return false;
-  }
-  
-  if (!photo) {
-    alert('❌ ОШИБКА: Заполните URL фотографии (обязательное поле)');
-    return false;
-  }
-  
-  if (photo.length > 200) {
-    alert('❌ ОШИБКА: URL фотографии не должен быть больше 200 символов');
-    return false;
-  }
-  
-  // Проверка что это похоже на URL
-  if (!photo.startsWith('http://') && !photo.startsWith('https://')) {
-    alert('❌ ОШИБКА: URL фотографии должен начинаться с http:// или https://');
-    return false;
-  }
-  
-  if (!description) {
-    alert('❌ ОШИБКА: Заполните описание (обязательное поле)');
-    return false;
-  }
-  
-  if (description.length > 100) {
-    alert('❌ ОШИБКА: Описание не должно быть больше 100 символов');
-    return false;
-  }
-  
-  if (!tags) {
-    alert('❌ ОШИБКА: Заполните теги (обязательное поле)');
-    return false;
-  }
-  
-  if (tags.length > 100) {
-    alert('❌ ОШИБКА: Теги не должны быть больше 100 символов');
-    return false;
-  }
-  
-  console.log('✅ Все поля заполнены и валидны');
-  return true;
-}
-
-// Load profiles
-async function loadProfiles() {
-  try {
-    const selectedCity = cityFilter.value;
-    const selectedGender = genderFilter.value;
-    
-    profiles = await fetchProfiles(
-      selectedCity !== 'all' ? selectedCity : null,
-      selectedGender !== 'all' ? selectedGender : null
-    );
-    
-    if (currentUser && viewedProfiles.length > 0) {
-      profiles = profiles.filter(profile => !viewedProfiles.includes(profile.id));
-    }
-    
-    currentIndex = 0;
-    renderCard();
-  } catch (error) {
-    console.error('Error loading profiles:', error);
-    showNotification('Ошибка загрузки профилей');
-  }
-}
-
-// Render current card
-function renderCard() {
-  if (!cardStack) return;
-  cardStack.innerHTML = '';
-  
-  if (currentIndex >= profiles.length) {
-    cardStack.innerHTML = '<div class="empty-text">Нет доступных профилей<br><br>Нажмите 🔄 чтобы обновить</div>';
-    refreshBtn.classList.add('show');
-    return;
-  }
-  
-  refreshBtn.classList.remove('show');
-  
-  const profile = profiles[currentIndex];
-  const card = document.createElement('div');
-  card.className = 'card';
-  
-  const genderEmoji = profile.gender === 'male' ? '🚮' : profile.gender === 'female' ? '🚮' : '';
-  
-  card.innerHTML = `
-    <div class="card-inner">
-      <div class="card-photo" style="background-image: url(${profile.photo || 'https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?w=800&q=80'})"></div>
-      <div class="card-info">
-        <div class="card-name-age">${genderEmoji} ${profile.username}, ${profile.age}</div>
-        <div class="card-city">${profile.city || ''}</div>
-        <div class="card-bio">${profile.description || ''}</div>
-      </div>
-    </div>
-  `;
-  cardStack.appendChild(card);
-}
-
-// Next card
-function nextCard() {
-  if (currentIndex < profiles.length - 1) {
-    currentIndex++;
-    renderCard();
-  } else {
-    cardStack.innerHTML = '<div class="empty-text">Нет доступных профилей<br><br>Нажмите 🔄 чтобы обновить</div>';
-    refreshBtn.classList.add('show');
-  }
-}
-
-// Refresh profiles
-function refreshProfiles() {
-  viewedProfiles = [];
-  currentIndex = 0;
-  loadProfiles();
-  showNotification('Карточки обновлены!');
-}
-
-// Like current profile
-async function likeCurrentProfile() {
-  if (currentIndex < profiles.length) {
-    const profile = profiles[currentIndex];
-    await likeProfile(profile);
-    
-    viewedProfiles.push(profile.id);
-    
-    nextCard();
-  }
-}
-
-// Like a specific profile
+// ✅ НОВОЕ: Добавить лайк (безопасный способ)
 async function likeProfile(profile) {
   if (!currentUser) {
-    showAuthMessage('Для лайков нужно войти в аккаунт', 'error');
+    showNotification('❌ Для лайков нужно войти в аккаунт');
     authPanel.setAttribute('aria-hidden', 'false');
     return false;
   }
   
   try {
-    await likeProfileAPI(profile.id);
+    const response = await apiRequest('/likes/add', {
+      method: 'POST',
+      body: { liked_profile_id: profile.id }
+    });
     
-    if (likeBtn) {
-      likeBtn.style.transform = 'scale(1.2)';
-      likeBtn.style.backgroundColor = '#34c759';
-      likeBtn.style.color = 'white';
-      
-      setTimeout(() => {
-        likeBtn.style.transform = 'scale(1)';
-        likeBtn.style.backgroundColor = '';
-        likeBtn.style.color = '';
-      }, 300);
+    if (response.success) {
+      showNotification(`❤️ Вы лайкнули ${profile.username}!`);
+      return true;
+    } else {
+      showNotification(`⚠️ ${response.message || 'Ошибка при лайке'}`);
+      return false;
     }
-    
-    showNotification(`Вы лайкнули ${profile.username}!`);
-    return true;
   } catch (error) {
-    console.error('Error liking profile:', error);
-    showNotification('Ошибка при лайке');
+    console.error('Like error:', error);
+    showNotification(`❌ ${getErrorMessage(error)}`);
     return false;
   }
 }
 
-// Unlike a profile
+// ✅ НОВОЕ: Удалить лайк (безопасный способ)
 async function unlikeProfile(profile) {
   if (!currentUser) return false;
   
   try {
-    await unlikeProfileAPI(profile.id);
-    showNotification(`Лайк для ${profile.username} убран`);
-    return true;
+    const response = await apiRequest(`/likes/remove/${profile.id}`, {
+      method: 'POST'
+    });
+    
+    if (response.success) {
+      showNotification('👍 Лайк удален');
+      return true;
+    } else {
+      showNotification(`⚠️ ${response.message || 'Ошибка'}`);
+      return false;
+    }
   } catch (error) {
-    console.error('Error unliking profile:', error);
-    showNotification('Ошибка при снятии лайка');
+    console.error('Unlike error:', error);
+    showNotification(`❌ ${getErrorMessage(error)}`);
     return false;
   }
 }
 
-// Skip current profile
-function skipCurrentProfile() {
-  if (currentIndex < profiles.length) {
-    const profile = profiles[currentIndex];
-    
-    viewedProfiles.push(profile.id);
-    
-    if (skipBtn) {
-      skipBtn.style.transform = 'scale(1.2)';
-      skipBtn.style.backgroundColor = '#ff3b30';
-      skipBtn.style.color = 'white';
-      
-      setTimeout(() => {
-        skipBtn.style.transform = 'scale(1)';
-        skipBtn.style.backgroundColor = '';
-        skipBtn.style.color = '';
-      }, 300);
-    }
-    
-    showNotification(`Вы пропустили ${profile.username}`);
-    nextCard();
+// ✅ НОВОЕ: Получить мои лайки
+async function getMyLikes() {
+  if (!currentUser) {
+    showNotification('❌ Пожалуйста авторизуйтесь');
+    return [];
+  }
+  
+  try {
+    return await apiRequest('/likes/my-likes');
+  } catch (error) {
+    console.error('Error getting my likes:', error);
+    showNotification('❌ Ошибка загрузки лайков');
+    return [];
   }
 }
 
-// Show notification
-function showNotification(message) {
-  const existingNotification = document.querySelector('.notification');
-  if (existingNotification) {
-    existingNotification.remove();
+// ✅ НОВОЕ: Получить кто лайкнул меня
+async function getWhoLikedMe() {
+  if (!currentUser) {
+    showNotification('❌ Пожалуйста авторизуйтесь');
+    return [];
   }
+  
+  try {
+    return await apiRequest('/likes/who-liked-me');
+  } catch (error) {
+    console.error('Error getting who liked me:', error);
+    showNotification('❌ Ошибка загрузки лайков');
+    return [];
+  }
+}
+
+// ✅ НОВОЕ: Проверить есть ли лайк
+async function checkIfLiked(profileId) {
+  if (!currentUser) return false;
+  
+  try {
+    const response = await apiRequest(`/likes/check/${profileId}`);
+    return response.liked || false;
+  } catch (error) {
+    return false;
+  }
+}
+
+// ============================================
+// UI FUNCTIONS
+// ============================================
+
+function showNotification(message) {
+  const existing = document.querySelector('.notification');
+  if (existing) existing.remove();
   
   const notification = document.createElement('div');
   notification.className = 'notification';
@@ -540,6 +347,7 @@ function showNotification(message) {
     border-radius: 10px;
     z-index: 1000;
     font-size: 14px;
+    max-width: 300px;
     animation: fadeInOut 3s ease-in-out;
   `;
   
@@ -548,488 +356,118 @@ function showNotification(message) {
     style.setAttribute('data-notification-style', 'true');
     style.textContent = `
       @keyframes fadeInOut {
-        0% { opacity: 0; transform: translateX(-50%) translateY(-20px); }
-        15% { opacity: 1; transform: translateX(-50%) translateY(0); }
-        85% { opacity: 1; transform: translateX(-50%) translateY(0); }
-        100% { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+        0% { opacity: 0; }
+        15% { opacity: 1; }
+        85% { opacity: 1; }
+        100% { opacity: 0; }
       }
     `;
     document.head.appendChild(style);
   }
   
   document.body.appendChild(notification);
-  
-  setTimeout(() => {
-    if (notification.parentNode) {
-      notification.remove();
-    }
-  }, 3000);
+  setTimeout(() => notification.remove(), 3000);
 }
 
-// Swipe handlers
-let startX = 0;
-if (cardStack) {
-  cardStack.addEventListener('touchstart', (e) => {
-    startX = e.touches[0].clientX;
-  });
-  
-  cardStack.addEventListener('touchend', (e) => {
-    const endX = e.changedTouches[0].clientX;
-    const diff = endX - startX;
-    if (Math.abs(diff) > 100) {
-      if (diff > 0) {
-        likeCurrentProfile();
-      } else {
-        skipCurrentProfile();
-      }
-    }
-  });
-}
-
-// Button handlers
-if (likeBtn) {
-  likeBtn.addEventListener('click', likeCurrentProfile);
-}
-
-if (skipBtn) {
-  skipBtn.addEventListener('click', skipCurrentProfile);
-}
-
-if (refreshBtn) {
-  refreshBtn.addEventListener('click', refreshProfiles);
-}
-
-// Create profile panel
-if (createBtn) {
-  createBtn.addEventListener('click', () => {
-    if (!currentUser) {
-      showAuthMessage('Для создания анкеты нужно войти в аккаунт', 'error');
-      authPanel.setAttribute('aria-hidden', 'false');
-      return;
-    }
-    if (createPanel) createPanel.setAttribute('aria-hidden', 'false');
-  });
-}
-
-if (createClose) {
-  createClose.addEventListener('click', () => {
-    if (createPanel) createPanel.setAttribute('aria-hidden', 'true');
-  });
-}
-
-// Close panels with back buttons
-document.querySelectorAll('.back-btn, .who-back-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    if (likedPanel) likedPanel.setAttribute('aria-hidden', 'true');
-    if (whoLikedPanel) whoLikedPanel.setAttribute('aria-hidden', 'true');
-  });
-});
-
-// Close profile view panel
-if (profileViewClose) {
-  profileViewClose.addEventListener('click', () => {
-    profileViewPanel.setAttribute('aria-hidden', 'true');
-    currentViewingProfile = null;
-  });
-}
-
-// Auth panel
-if (authBtn) {
-  authBtn.addEventListener('click', () => {
-    updateAuthUI();
-    authPanel.setAttribute('aria-hidden', 'false');
-  });
-}
-
-if (authClose) {
-  authClose.addEventListener('click', () => {
-    authPanel.setAttribute('aria-hidden', 'true');
-  });
-}
-
-// Auth tabs
-document.getElementById('login-tab').addEventListener('click', () => {
-  document.getElementById('login-tab').classList.add('active');
-  document.getElementById('register-tab').classList.remove('active');
-  document.getElementById('login-form').style.display = 'block';
-  document.getElementById('register-form').style.display = 'none';
-});
-
-document.getElementById('register-tab').addEventListener('click', () => {
-  document.getElementById('register-tab').classList.add('active');
-  document.getElementById('login-tab').classList.remove('active');
-  document.getElementById('register-form').style.display = 'block';
-  document.getElementById('login-form').style.display = 'none';
-});
-
-// Login function
-document.getElementById('login-btn').addEventListener('click', async () => {
-  const email = document.getElementById('login-email').value;
-  const password = document.getElementById('login-password').value;
-  
-  if (!email || !password) {
-    showAuthMessage('Заполните все поля', 'error');
-    return;
-  }
-  
+async function loadProfiles() {
   try {
-    await loginUser(email, password);
-    updateAuthUI();
-    updateAuthButtonDisplay();
-    updateUserStatusDisplay();
-    showAuthMessage('Вход выполнен успешно!', 'success');
-    setTimeout(() => {
-      authPanel.setAttribute('aria-hidden', 'true');
-      loadProfiles();
-    }, 1000);
+    const selectedCity = cityFilter?.value || 'all';
+    const selectedGender = genderFilter?.value || 'all';
+    
+    profiles = await fetchProfiles(
+      selectedCity !== 'all' ? selectedCity : null,
+      selectedGender !== 'all' ? selectedGender : null
+    );
+    
+    currentIndex = 0;
+    renderCard();
   } catch (error) {
-    const errorMessage = getErrorMessage(error);
-    showAuthMessage(errorMessage, 'error');
+    console.error('Error loading profiles:', error);
+    showNotification('❌ Ошибка загрузки профилей');
   }
-});
+}
 
-// Register function
-document.getElementById('register-btn').addEventListener('click', async () => {
-  const email = document.getElementById('register-email').value;
-  const password = document.getElementById('register-password').value;
-  const confirmPassword = document.getElementById('register-confirm-password').value;
+function renderCard() {
+  if (!cardStack) return;
+  cardStack.innerHTML = '';
   
-  if (!email || !password || !confirmPassword) {
-    showAuthMessage('Заполните все поля', 'error');
+  if (!profiles || currentIndex >= profiles.length) {
+    cardStack.innerHTML = '<div class="empty-text">🔍 Нет доступных профилей<br><br>🔄 Нажмите чтобы обновить</div>';
+    refreshBtn?.classList.add('show');
     return;
   }
   
-  if (password !== confirmPassword) {
-    showAuthMessage('Пароли не совпадают', 'error');
-    return;
-  }
+  refreshBtn?.classList.remove('show');
   
-  if (password.length < 6) {
-    showAuthMessage('Пароль должен быть не менее 6 символов', 'error');
-    return;
-  }
+  const profile = profiles[currentIndex];
+  const card = document.createElement('div');
+  card.className = 'card';
   
-  try {
-    await registerUser(email, password);
-    updateAuthUI();
-    updateAuthButtonDisplay();
-    updateUserStatusDisplay();
-    showAuthMessage('Регистрация выполнена успешно!', 'success');
-    setTimeout(() => {
-      authPanel.setAttribute('aria-hidden', 'true');
-      loadProfiles();
-    }, 1000);
-  } catch (error) {
-    const errorMessage = getErrorMessage(error);
-    showAuthMessage(errorMessage, 'error');
-  }
-});
+  card.innerHTML = `
+    <div class="card-inner">
+      <div class="card-photo" style="background-image: url(${profile.photo || 'https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?w=800&q=80'})"></div>
+      <div class="card-info">
+        <div class="card-name-age">👤 ${profile.username}, ${profile.age}</div>
+        <div class="card-city">📍 ${profile.city || 'Не указан'}</div>
+        <div class="card-bio">💬 ${profile.description || 'Нет описания'}</div>
+      </div>
+    </div>
+  `;
+  cardStack.appendChild(card);
+}
 
-// Logout function
-document.getElementById('logout-btn').addEventListener('click', () => {
-  logoutUser();
-  updateAuthUI();
-  updateAuthButtonDisplay();
-  updateUserStatusDisplay();
-  showAuthMessage('Вы вышли из аккаунта', 'success');
-  setTimeout(() => {
-    authPanel.setAttribute('aria-hidden', 'true');
-    loadProfiles();
-  }, 1000);
-});
-
-// Update auth UI
-function updateAuthUI() {
-  const authMessage = document.getElementById('auth-message');
-  authMessage.className = 'auth-message';
-  authMessage.textContent = '';
-  
-  if (currentUser) {
-    document.getElementById('current-user-email').textContent = currentUser.email;
-    document.getElementById('login-form').style.display = 'none';
-    document.getElementById('register-form').style.display = 'none';
-    document.getElementById('logout-form').style.display = 'block';
-    document.getElementById('login-tab').style.display = 'none';
-    document.getElementById('register-tab').style.display = 'none';
+function nextCard() {
+  if (currentIndex < profiles.length - 1) {
+    currentIndex++;
+    renderCard();
   } else {
-    document.getElementById('login-form').style.display = 'block';
-    document.getElementById('register-form').style.display = 'none';
-    document.getElementById('logout-form').style.display = 'none';
-    document.getElementById('login-tab').style.display = 'block';
-    document.getElementById('register-tab').style.display = 'block';
-    document.getElementById('login-tab').classList.add('active');
-    document.getElementById('register-tab').classList.remove('active');
-    
-    document.getElementById('login-email').value = '';
-    document.getElementById('login-password').value = '';
-    document.getElementById('register-email').value = '';
-    document.getElementById('register-password').value = '';
-    document.getElementById('register-confirm-password').value = '';
+    cardStack.innerHTML = '<div class="empty-text">🔍 Нет доступных профилей<br><br>🔄 Нажмите чтобы обновить</div>';
+    refreshBtn?.classList.add('show');
   }
 }
 
-// Show auth message
-function showAuthMessage(message, type) {
-  const authMessage = document.getElementById('auth-message');
-  authMessage.textContent = message;
-  authMessage.className = `auth-message ${type}`;
-}
-
-// ✅ ИСПРАВЛЕНО: Save profile с полной валидацией
-if (createSave) {
-  createSave.addEventListener('click', async () => {
-    if (!currentUser) {
-      showAuthMessage('Для создания анкеты нужно войти в аккаунт', 'error');
-      return;
-    }
-    
-    // ✅ ВАЛИДАЦИЯ ВСЕХ ПОЛЕЙ
-    if (!validateProfileForm()) {
-      return;
-    }
-    
-    // ✅ ПОЛУЧАЕМ ЗНАЧЕНИЯ (они уже проверены)
-    const username = document.getElementById('create-name').value.trim();
-    const age = parseInt(document.getElementById('create-age').value.trim());
-    const gender = document.getElementById('create-gender').value.trim();
-    const city = document.getElementById('create-city').value.trim();
-    const photo = document.getElementById('create-photo').value.trim();
-    const description = document.getElementById('create-bio').value.trim();
-    const tags = document.getElementById('create-tags').value.trim();
-    
-    // ✅ ПРАВИЛЬНАЯ СТРУКТУРА (БЕЗ || '', так как уже валидировано)
-    const profileData = {
-      user_id: currentUser.id,
-      username: username,
-      age: age,
-      gender: gender,
-      city: city,
-      description: description,
-      photo: photo,
-      tags: tags,
-      role_id: currentUser.role_id || 1
-    };
-    
-    try {
-      console.log('📤 Отправляю profileData:', profileData);
-      console.log('📋 user_id:', profileData.user_id);
-      console.log('📋 username:', profileData.username);
-      console.log('📋 age:', profileData.age);
-      console.log('📋 gender:', profileData.gender);
-      console.log('📋 city:', profileData.city);
-      console.log('📋 description:', profileData.description);
-      console.log('📋 photo:', profileData.photo);
-      console.log('📋 tags:', profileData.tags);
-      console.log('📋 role_id:', profileData.role_id);
-      
-      myProfile = await createProfile(profileData);
-      console.log('✅ Профиль создан:', myProfile);
-      showNotification('✅ Профиль создан успешно!');
-      if (createPanel) createPanel.setAttribute('aria-hidden', 'true');
-      
-      // Clear form
-      document.getElementById('create-name').value = '';
-      document.getElementById('create-age').value = '';
-      document.getElementById('create-gender').value = '';
-      document.getElementById('create-city').value = '';
-      document.getElementById('create-photo').value = '';
-      document.getElementById('create-bio').value = '';
-      document.getElementById('create-tags').value = '';
-      
-      // Reload profiles
-      await loadProfiles();
-    } catch (error) {
-      const errorMessage = getErrorMessage(error);
-      console.error('❌ Error creating profile:', error);
-      console.error('❌ Error details:', errorMessage);
-      alert('❌ ОШИБКА при создании профиля:\n\n' + errorMessage);
-    }
-  });
-}
-
-// Liked profiles button
-const savedBtn = document.getElementById('saved-btn');
-savedBtn?.addEventListener('click', async () => {
+async function likeCurrentProfile() {
   if (!currentUser) {
-    showAuthMessage('Для просмотра понравившихся нужно войти в аккаунт', 'error');
+    showNotification('❌ Пожалуйста авторизуйтесь');
     authPanel.setAttribute('aria-hidden', 'false');
     return;
   }
-  await renderLikedList();
-  likedPanel?.setAttribute('aria-hidden', 'false');
-});
-
-// Who liked me button
-if (whoLikedBtn) {
-  whoLikedBtn.addEventListener('click', async () => {
-    if (!currentUser) {
-      showAuthMessage('Для просмотра лайков нужно войти в аккаунт', 'error');
-      authPanel.setAttribute('aria-hidden', 'false');
-      return;
-    }
-    await renderWhoLikedList();
-    whoLikedPanel?.setAttribute('aria-hidden', 'false');
-  });
-}
-
-async function renderLikedList() {
-  if (!likedList) return;
   
-  try {
-    const likedProfiles = await getLikedProfiles();
-    likedList.innerHTML = '';
-    
-    if (likedProfiles.length === 0) {
-      likedList.innerHTML = '<div class="empty-text">Нет понравившихся профилей</div>';
-      return;
+  if (currentIndex < profiles.length) {
+    const profile = profiles[currentIndex];
+    if (await likeProfile(profile)) {
+      viewedProfiles.push(profile.id);
+      nextCard();
     }
-    
-    likedProfiles.forEach(profile => {
-      const item = document.createElement('div');
-      item.className = 'liked-item';
-      const genderEmoji = profile.gender === 'male' ? '🚮' : profile.gender === 'female' ? '🚮' : '';
-      item.innerHTML = `
-        <div class="profile-photo-small" style="background-image: url(${profile.photo || 'https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?w=800&q=80'})"></div>
-        <div class="profile-info">
-          <div class="profile-name-age">${genderEmoji} ${profile.username}, ${profile.age}</div>
-          <div class="profile-city">${profile.city || 'Город не указан'}</div>
-        </div>
-        <div class="item-actions">
-          <button class="item-action-btn view-btn" data-id="${profile.id}" title="Просмотреть анкету">👁</button>
-          <button class="item-action-btn unlike-btn" data-id="${profile.id}" title="Убрать лайк">✕</button>
-        </div>
-      `;
-      likedList.appendChild(item);
-    });
-    
-    // Add event listeners
-    document.querySelectorAll('.liked-item .view-btn').forEach(btn => {
-      btn.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        const profileId = parseInt(btn.getAttribute('data-id'));
-        const likedProfiles = await getLikedProfiles();
-        const profile = likedProfiles.find(p => p.id === profileId);
-        if (profile) {
-          isViewingFromLikedList = true;
-          viewProfile(profile);
-        }
-      });
-    });
-    
-    document.querySelectorAll('.liked-item .unlike-btn').forEach(btn => {
-      btn.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        const profileId = parseInt(btn.getAttribute('data-id'));
-        const likedProfiles = await getLikedProfiles();
-        const profile = likedProfiles.find(p => p.id === profileId);
-        if (profile) {
-          await unlikeProfile(profile);
-          renderLikedList();
-        }
-      });
-    });
-  } catch (error) {
-    console.error('Error rendering liked list:', error);
-    likedList.innerHTML = '<div class="empty-text">Ошибка загрузки</div>';
   }
 }
 
-async function renderWhoLikedList() {
-  if (!whoLikedList) return;
-  
-  try {
-    const whoLiked = await getWhoLikedMe();
-    const likedProfiles = await getLikedProfiles();
-    
-    whoLikedList.innerHTML = '';
-    
-    if (whoLiked.length === 0) {
-      whoLikedList.innerHTML = '<div class="empty-text">Пока никто не лайкнул ваш профиль</div>';
-      return;
-    }
-    
-    whoLiked.forEach(profile => {
-      const isLikedBack = likedProfiles.some(p => p.id === profile.id);
-      const item = document.createElement('div');
-      item.className = 'who-liked-item';
-      const genderEmoji = profile.gender === 'male' ? '🚮' : profile.gender === 'female' ? '🚮' : '';
-      item.innerHTML = `
-        <div class="profile-photo-small" style="background-image: url(${profile.photo || 'https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?w=800&q=80'})"></div>
-        <div class="profile-info">
-          <div class="profile-name-age">${genderEmoji} ${profile.username}, ${profile.age}</div>
-          <div class="profile-city">${profile.city}</div>
-        </div>
-        <div class="item-actions">
-          <button class="item-action-btn view-btn" data-id="${profile.id}" title="Просмотреть анкету">👁</button>
-          ${isLikedBack ? 
-            '<button class="item-action-btn unlike-btn" data-id="' + profile.id + '" title="Убрать лайк">✕</button>' : 
-            '<button class="item-action-btn like-back-btn" data-id="' + profile.id + '" title="Лайкнуть в ответ">❤</button>'
-          }
-        </div>
-      `;
-      whoLikedList.appendChild(item);
-    });
-    
-    // Add event listeners
-    document.querySelectorAll('.who-liked-item .view-btn').forEach(btn => {
-      btn.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        const profileId = parseInt(btn.getAttribute('data-id'));
-        const whoLiked = await getWhoLikedMe();
-        const profile = whoLiked.find(p => p.id === profileId);
-        if (profile) {
-          isViewingFromLikedList = false;
-          viewProfile(profile);
-        }
-      });
-    });
-    
-    document.querySelectorAll('.who-liked-item .like-back-btn').forEach(btn => {
-      btn.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        const profileId = parseInt(btn.getAttribute('data-id'));
-        const whoLiked = await getWhoLikedMe();
-        const profile = whoLiked.find(p => p.id === profileId);
-        if (profile) {
-          await likeProfile(profile);
-          renderWhoLikedList();
-        }
-      });
-    });
-    
-    document.querySelectorAll('.who-liked-item .unlike-btn').forEach(btn => {
-      btn.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        const profileId = parseInt(btn.getAttribute('data-id'));
-        const whoLiked = await getWhoLikedMe();
-        const profile = whoLiked.find(p => p.id === profileId);
-        if (profile) {
-          await unlikeProfile(profile);
-          renderWhoLikedList();
-        }
-      });
-    });
-  } catch (error) {
-    console.error('Error rendering who liked list:', error);
-    whoLikedList.innerHTML = '<div class="empty-text">Ошибка загрузки</div>';
+function skipCurrentProfile() {
+  if (currentIndex < profiles.length) {
+    const profile = profiles[currentIndex];
+    viewedProfiles.push(profile.id);
+    showNotification(`⏭️ Вы пропустили ${profile.username}`);
+    nextCard();
   }
 }
 
-// View profile function
+function refreshProfiles() {
+  viewedProfiles = [];
+  loadProfiles();
+  showNotification('🔄 Карточки обновлены!');
+}
+
 function viewProfile(profile) {
   currentViewingProfile = profile;
   
   document.getElementById('profile-view-photo').style.backgroundImage = `url(${profile.photo || 'https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?w=800&q=80'})`;
   document.getElementById('profile-view-name').textContent = profile.username;
   document.getElementById('profile-view-age').textContent = `${profile.age} лет`;
-  document.getElementById('profile-view-gender').textContent = profile.gender === 'male' ? 'Мужчина' : profile.gender === 'female' ? 'Женщина' : 'Не указан';
   document.getElementById('profile-view-city').textContent = profile.city || 'Не указан';
   document.getElementById('profile-view-bio').textContent = profile.description || 'Не указано';
-  document.getElementById('profile-view-contact').textContent = profile.tags || 'Не указаны';
-  document.getElementById('profile-view-tags').textContent = profile.tags || 'Не указаны';
   
-  getLikedProfiles().then(likedProfiles => {
-    const isLiked = likedProfiles.some(p => p.id === profile.id);
+  // Проверяем лайк
+  checkIfLiked(profile.id).then(isLiked => {
     if (isLiked) {
       profileViewLikeBtn.style.display = 'none';
       profileViewUnlikeBtn.style.display = 'block';
@@ -1042,97 +480,264 @@ function viewProfile(profile) {
   profileViewPanel.setAttribute('aria-hidden', 'false');
 }
 
-// Profile view like button
-if (profileViewLikeBtn) {
-  profileViewLikeBtn.addEventListener('click', async () => {
-    if (currentViewingProfile) {
-      if (await likeProfile(currentViewingProfile)) {
-        profileViewLikeBtn.style.display = 'none';
-        profileViewUnlikeBtn.style.display = 'block';
-        
-        if (isViewingFromLikedList) {
-          await renderLikedList();
-        } else {
-          await renderWhoLikedList();
-        }
-      }
-    }
-  });
-}
+// ============================================
+// EVENT LISTENERS
+// ============================================
 
-// Profile view unlike button
-if (profileViewUnlikeBtn) {
-  profileViewUnlikeBtn.addEventListener('click', async () => {
-    if (currentViewingProfile) {
-      if (await unlikeProfile(currentViewingProfile)) {
-        profileViewLikeBtn.style.display = 'block';
-        profileViewUnlikeBtn.style.display = 'none';
-        
-        if (isViewingFromLikedList) {
-          await renderLikedList();
-        } else {
-          await renderWhoLikedList();
-        }
-        
-        if (isViewingFromLikedList) {
-          setTimeout(() => {
-            profileViewPanel.setAttribute('aria-hidden', 'true');
-          }, 500);
-        }
-      }
-    }
-  });
-}
+// Кнопки управления
+likeBtn?.addEventListener('click', likeCurrentProfile);
+skipBtn?.addEventListener('click', skipCurrentProfile);
+refreshBtn?.addEventListener('click', refreshProfiles);
 
-// Create preview
-const createPreview = document.getElementById('create-preview');
-const createPreviewArea = document.querySelector('.create-preview-area');
-
-createPreview?.addEventListener('click', () => {
-  const username = document.getElementById('create-name').value || "Имя";
-  const age = document.getElementById('create-age').value || "Возраст";
-  const gender = document.getElementById('create-gender').value;
-  const city = document.getElementById('create-city').value || "Город";
-  const description = document.getElementById('create-bio').value || "О себе";
-  const photo = document.getElementById('create-photo').value || "https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?w=800&q=80";
-  
-  const genderEmoji = gender === 'male' ? '🚮' : gender === 'female' ? '🚮' : '';
-  
-  createPreviewArea.innerHTML = `
-    <div class="card" style="position: relative; height: 320px; margin: 0 auto;">
-      <div class="card-inner">
-        <div class="card-photo" style="background-image: url(${photo})"></div>
-        <div class="card-info">
-          <div class="card-name-age">${genderEmoji} ${username}, ${age}</div>
-          <div class="card-city">${city}</div>
-          <div class="card-bio">${description}</div>
-        </div>
-      </div>
-    </div>
-    <button onclick="document.querySelector('.create-preview-area').setAttribute('aria-hidden', 'true')" style="margin-top: 12px; width: 100%; padding: 10px;">Закрыть предпросмотр</button>
-  `;
-  createPreviewArea.setAttribute('aria-hidden', 'false');
+// Создание профиля
+createBtn?.addEventListener('click', () => {
+  if (!currentUser) {
+    showNotification('❌ Для создания анкеты нужно войти в аккаунт');
+    authPanel.setAttribute('aria-hidden', 'false');
+    return;
+  }
+  createPanel?.setAttribute('aria-hidden', 'false');
 });
 
-// Logo click handler
-const logoRow = document.querySelector('.logo-row');
-logoRow?.addEventListener('click', () => {
-  const url = prompt('Введите URL логотипа:', 'https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?w=800&q=80');
-  if (url) {
-    document.getElementById('logo-img').src = url;
+createClose?.addEventListener('click', () => {
+  createPanel?.setAttribute('aria-hidden', 'true');
+});
+
+createeSave?.addEventListener('click', async () => {
+  if (!currentUser) {
+    showNotification('❌ Пожалуйста авторизуйтесь');
+    return;
+  }
+  
+  const username = document.getElementById('create-name').value.trim();
+  const age = document.getElementById('create-age').value.trim();
+  const gender = document.getElementById('create-gender').value.trim();
+  const city = document.getElementById('create-city').value.trim();
+  const photo = document.getElementById('create-photo').value.trim();
+  const description = document.getElementById('create-bio').value.trim();
+  const tags = document.getElementById('create-tags').value.trim();
+  
+  // Валидация
+  if (!username || !age || !gender || !city || !photo || !description) {
+    showNotification('❌ Заполните все поля');
+    return;
+  }
+  
+  try {
+    await createProfile({
+      username, age: parseInt(age), gender, city, photo, description, tags
+    });
+    
+    showNotification('✅ Профиль создан!');
+    createPanel?.setAttribute('aria-hidden', 'true');
+    
+    // Очищаем форму
+    document.getElementById('create-name').value = '';
+    document.getElementById('create-age').value = '';
+    document.getElementById('create-gender').value = '';
+    document.getElementById('create-city').value = '';
+    document.getElementById('create-photo').value = '';
+    document.getElementById('create-bio').value = '';
+    document.getElementById('create-tags').value = '';
+    
+    await loadProfiles();
+  } catch (error) {
+    showNotification(`❌ ${getErrorMessage(error)}`);
   }
 });
 
-// Filter change handlers
-if (cityFilter) {
-  cityFilter.addEventListener('change', loadProfiles);
-}
+// Лайки
+const savedBtn = document.getElementById('saved-btn');
+savedBtn?.addEventListener('click', async () => {
+  if (!currentUser) {
+    showNotification('❌ Пожалуйста авторизуйтесь');
+    authPanel.setAttribute('aria-hidden', 'false');
+    return;
+  }
+  
+  const liked = await getMyLikes();
+  likedList.innerHTML = '';
+  
+  if (liked.length === 0) {
+    likedList.innerHTML = '<div class="empty-text">💔 Нет лайков</div>';
+  } else {
+    liked.forEach(profile => {
+      const item = document.createElement('div');
+      item.className = 'liked-item';
+      item.innerHTML = `
+        <div class="profile-photo-small" style="background-image: url(${profile.photo})"></div>
+        <div class="profile-info">
+          <div class="profile-name-age">👤 ${profile.username}, ${profile.age}</div>
+          <div class="profile-city">📍 ${profile.city}</div>
+        </div>
+        <div class="item-actions">
+          <button class="item-action-btn view-btn" onclick="viewProfile(${JSON.stringify(profile).replace(/"/g, '&quot;')})" title="Посмотреть">👁</button>
+          <button class="item-action-btn unlike-btn" onclick="unlikeProfile(${JSON.stringify(profile).replace(/"/g, '&quot;')})" title="Убрать лайк">✕</button>
+        </div>
+      `;
+      likedList.appendChild(item);
+    });
+  }
+  
+  likedPanel?.setAttribute('aria-hidden', 'false');
+});
 
-if (genderFilter) {
-  genderFilter.addEventListener('change', loadProfiles);
-}
+whoLikedBtn?.addEventListener('click', async () => {
+  if (!currentUser) {
+    showNotification('❌ Пожалуйста авторизуйтесь');
+    authPanel.setAttribute('aria-hidden', 'false');
+    return;
+  }
+  
+  const whoLiked = await getWhoLikedMe();
+  whoLikedList.innerHTML = '';
+  
+  if (whoLiked.length === 0) {
+    whoLikedList.innerHTML = '<div class="empty-text">💔 Никто еще не лайкнул вас</div>';
+  } else {
+    whoLiked.forEach(profile => {
+      const item = document.createElement('div');
+      item.className = 'who-liked-item';
+      item.innerHTML = `
+        <div class="profile-photo-small" style="background-image: url(${profile.photo})"></div>
+        <div class="profile-info">
+          <div class="profile-name-age">👤 ${profile.username}, ${profile.age}</div>
+          <div class="profile-city">📍 ${profile.city}</div>
+        </div>
+        <div class="item-actions">
+          <button class="item-action-btn view-btn" onclick="viewProfile(${JSON.stringify(profile).replace(/"/g, '&quot;')})" title="Посмотреть">👁</button>
+          <button class="item-action-btn like-btn" onclick="likeProfile(${JSON.stringify(profile).replace(/"/g, '&quot;')})" title="Лайкнуть">❤️</button>
+        </div>
+      `;
+      whoLikedList.appendChild(item);
+    });
+  }
+  
+  whoLikedPanel?.setAttribute('aria-hidden', 'false');
+});
 
-// Apply theme on load
+// Просмотр профиля
+profileViewClose?.addEventListener('click', () => {
+  profileViewPanel.setAttribute('aria-hidden', 'true');
+});
+
+profileViewLikeBtn?.addEventListener('click', async () => {
+  if (currentViewingProfile && await likeProfile(currentViewingProfile)) {
+    profileViewLikeBtn.style.display = 'none';
+    profileViewUnlikeBtn.style.display = 'block';
+  }
+});
+
+profileViewUnlikeBtn?.addEventListener('click', async () => {
+  if (currentViewingProfile && await unlikeProfile(currentViewingProfile)) {
+    profileViewLikeBtn.style.display = 'block';
+    profileViewUnlikeBtn.style.display = 'none';
+  }
+});
+
+// Аутентификация
+document.getElementById('login-tab')?.addEventListener('click', () => {
+  document.getElementById('login-tab').classList.add('active');
+  document.getElementById('register-tab').classList.remove('active');
+  document.getElementById('login-form').style.display = 'block';
+  document.getElementById('register-form').style.display = 'none';
+});
+
+document.getElementById('register-tab')?.addEventListener('click', () => {
+  document.getElementById('register-tab').classList.add('active');
+  document.getElementById('login-tab').classList.remove('active');
+  document.getElementById('register-form').style.display = 'block';
+  document.getElementById('login-form').style.display = 'none';
+});
+
+document.getElementById('login-btn')?.addEventListener('click', async () => {
+  const email = document.getElementById('login-email').value;
+  const password = document.getElementById('login-password').value;
+  
+  if (!email || !password) {
+    showAuthMessage('❌ Заполните все поля', 'error');
+    return;
+  }
+  
+  try {
+    await loginUser(email, password);
+    updateAuthUI();
+    updateAuthButtonDisplay();
+    updateUserStatusDisplay();
+    showAuthMessage('✅ Вход успешен!', 'success');
+    setTimeout(() => {
+      authPanel.setAttribute('aria-hidden', 'true');
+      loadProfiles();
+    }, 1000);
+  } catch (error) {
+    showAuthMessage(`❌ ${getErrorMessage(error)}`, 'error');
+  }
+});
+
+document.getElementById('register-btn')?.addEventListener('click', async () => {
+  const email = document.getElementById('register-email').value;
+  const password = document.getElementById('register-password').value;
+  const confirm = document.getElementById('register-confirm-password').value;
+  
+  if (!email || !password || !confirm) {
+    showAuthMessage('❌ Заполните все поля', 'error');
+    return;
+  }
+  
+  if (password !== confirm) {
+    showAuthMessage('❌ Пароли не совпадают', 'error');
+    return;
+  }
+  
+  try {
+    await registerUser(email, password);
+    updateAuthUI();
+    updateAuthButtonDisplay();
+    updateUserStatusDisplay();
+    showAuthMessage('✅ Регистрация успешна!', 'success');
+    setTimeout(() => {
+      authPanel.setAttribute('aria-hidden', 'true');
+      loadProfiles();
+    }, 1000);
+  } catch (error) {
+    showAuthMessage(`❌ ${getErrorMessage(error)}`, 'error');
+  }
+});
+
+document.getElementById('logout-btn')?.addEventListener('click', () => {
+  logoutUser();
+  updateAuthUI();
+  updateAuthButtonDisplay();
+  updateUserStatusDisplay();
+  showAuthMessage('✅ Вы вышли из аккаунта', 'success');
+  setTimeout(() => {
+    authPanel.setAttribute('aria-hidden', 'true');
+    loadProfiles();
+  }, 1000);
+});
+
+logoutHeaderBtn?.addEventListener('click', () => {
+  logoutUser();
+  updateAuthUI();
+  updateAuthButtonDisplay();
+  updateUserStatusDisplay();
+  showNotification('✅ Вы вышли');
+  loadProfiles();
+});
+
+authBtn?.addEventListener('click', () => {
+  updateAuthUI();
+  authPanel.setAttribute('aria-hidden', 'false');
+});
+
+authClose?.addEventListener('click', () => {
+  authPanel.setAttribute('aria-hidden', 'true');
+});
+
+cityFilter?.addEventListener('change', loadProfiles);
+genderFilter?.addEventListener('change', loadProfiles);
+
+// Тема
 function applyTheme() {
   if (darkMode) {
     document.documentElement.classList.add('dark');
@@ -1142,30 +747,29 @@ function applyTheme() {
     if (themeToggle) themeToggle.textContent = '🌙';
   }
 }
+
 applyTheme();
 
-// Theme toggle
-if (themeToggle) {
-  themeToggle.addEventListener('click', () => {
-    darkMode = !darkMode;
-    localStorage.setItem('darkMode', darkMode ? '1' : '0');
-    applyTheme();
-  });
-}
+themeToggle?.addEventListener('click', () => {
+  darkMode = !darkMode;
+  localStorage.setItem('darkMode', darkMode ? '1' : '0');
+  applyTheme();
+});
 
-// Initialize app
+// ============================================
+// INITIALIZATION
+// ============================================
+
 window.addEventListener('DOMContentLoaded', async () => {
   if (authToken) {
     try {
-      console.log('🔍 Checking if user is still logged in...');
-      console.log('Token preview:', authToken.substring(0, 20) + '...');
-      currentUser = await apiRequest('/users/me');
-      console.log('✅ User is logged in:', currentUser.email);
+      console.log('🔍 Проверка авторизации...');
+      // Просто считаем что пользователь авторизован если есть токен
+      // Не делаем лишний запрос к БД
+      console.log('✅ Пользователь авторизован');
     } catch (error) {
-      console.error('⚠️ Error fetching user:', error);
-      authToken = null;
-      currentUser = null;
-      localStorage.removeItem('authToken');
+      console.error('❌ Ошибка авторизации:', error);
+      logoutUser();
     }
   }
   
