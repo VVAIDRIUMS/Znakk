@@ -13,7 +13,7 @@ class UserBase(BaseModel):
 class SUserAdd(UserBase):
     """Схема для добавления пользователя"""
     password: str = Field(..., min_length=8, max_length=100, description="Пароль")
-            role_id: int = Field(1, ge=1, description="ID роли пользователя")
+    role_id: int = Field(1, ge=1, description="ID роли пользователя")
 
     @validator('password')
     def validate_password(cls, v):
