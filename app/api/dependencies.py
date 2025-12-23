@@ -11,6 +11,8 @@ from app.exceptions.auth import (
 )
 from app.services.auth import AuthService
 from app.database.db_manager import DBManager
+from app.schemas.users import UserResponse
+from app.repositories.users import UserRepository
 
 
 class PaginationParams(BaseModel):
@@ -45,3 +47,22 @@ async def get_db():
 
 
 DBDep = Annotated[DBManager, Depends(get_db)]
+
+
+# ✅ НОВОЕ: Получить текущего пользователя с полной информацией
+async def get_current_user(
+    user_id: int = Depends(get_current_user_id),
+    db: DBManager = Depends(get_db)
+) -> UserResponse:
+    """
+    Получить информацию о текущем пользователе
+    Требует: valid JWT token
+    Возвращает: UserResponse с полной информацией
+    """
+    user_repo = UserRepository(db.session)
+    user = await user_repo.get_by_id(user_id)
+    
+    if not user:
+        raise InvalidTokenHTTPError
+    
+    return UserResponse.model_validate(user)
