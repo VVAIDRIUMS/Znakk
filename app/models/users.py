@@ -7,6 +7,7 @@ from app.database.database import Base
 
 if TYPE_CHECKING:
     from app.models.roles import RoleModel
+    from app.models.likes import LikeModel
 
 
 class UserModel(Base):
@@ -20,3 +21,10 @@ class UserModel(Base):
 
     role_id: Mapped[int] = mapped_column(ForeignKey("roles.id"), nullable=False)
     role: Mapped["RoleModel"] = relationship(back_populates="users")
+    
+    # ✅ НОВОЕ: Лайки которые этот пользователь поставил
+    likes_made: Mapped[list["LikeModel"]] = relationship(
+        "LikeModel",
+        back_populates="user",
+        foreign_keys="LikeModel.user_id"
+    )
